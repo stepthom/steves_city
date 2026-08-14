@@ -26,10 +26,11 @@
     border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);
     backdrop-filter:blur(16px) saturate(1.25); -webkit-backdrop-filter:blur(16px) saturate(1.25);
   }
-  #topleft{top:16px;left:16px;padding:12px 16px 12px 16px;min-width:184px;max-width:264px}
+  #topleft{top:16px;left:16px;padding:12px 16px 12px 16px;min-width:184px;max-width:302px}
   .clock{font-size:30px;font-weight:600;letter-spacing:0.5px;line-height:1.05;font-variant-numeric:tabular-nums;
     display:flex;align-items:baseline;gap:8px}
   .clock .phase{font-size:11px;font-weight:600;color:var(--accent-2);letter-spacing:1.4px;text-transform:uppercase}
+  .clock .ampm{font-size:14px;font-weight:600;margin-left:3px;color:var(--dim);letter-spacing:0}
   .stats{margin-top:9px;display:flex;gap:16px}
   .stat{line-height:1.15}
   .stat b{display:block;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
@@ -47,9 +48,14 @@
   .btn.on{background:var(--accent);color:#06231f;border-color:transparent}
   .btn:active{transform:translateY(0)}
 
-  #bottomright{bottom:16px;right:16px;padding:10px;display:flex;gap:10px;align-items:center}
+  #bottomright{bottom:16px;right:16px;padding:10px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+  .brow{display:flex;gap:10px;align-items:center}
   #timeslider{width:150px;accent-color:var(--accent);cursor:pointer}
+  #pplsize{width:104px;accent-color:var(--accent);cursor:pointer}
+  .num{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
   .lbl{font-size:9.5px;color:var(--dim);letter-spacing:1.1px;text-transform:uppercase;margin-right:2px}
+  #speedseg button{padding:7px 9px}
+  #densityseg button{padding:6px 9px;font-size:11px}
 
   #palette{left:16px;bottom:16px;padding:12px;width:246px;max-height:calc(100vh - 190px);overflow-y:auto;
     display:none;scrollbar-width:thin}
@@ -69,7 +75,7 @@
   .phint{margin-top:11px;font-size:10.5px;color:var(--dim);line-height:1.5;border-top:1px solid var(--stroke);padding-top:9px}
   .phint kbd{background:rgba(255,255,255,.14);border-radius:4px;padding:1px 5px;font:inherit;font-size:10px}
 
-  #legend{right:16px;bottom:78px;padding:11px 13px;display:none}
+  #legend{right:16px;bottom:126px;padding:11px 13px;display:none}
   #legend.show{display:block}
   .lgt{font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
   .lgr{display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:4px}
@@ -103,14 +109,33 @@
     font-size:10px;font-weight:600;padding:3px 7px;border-radius:7px;cursor:pointer}
   .lbtn:hover{background:rgba(255,255,255,.18)}
   .icap b{color:var(--text)}
-  .counts{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:9px;padding-top:9px;border-top:1px solid var(--stroke)}
-  .counts i{font-style:normal;font-size:10px;color:var(--dim)}
-  .counts b{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .counts{display:flex;flex-wrap:wrap;gap:3px 5px;margin-top:9px;padding-top:9px;
+    border-top:1px solid var(--stroke);max-height:44vh;overflow-y:auto;scrollbar-width:thin}
+  .counts::-webkit-scrollbar{width:6px}
+  .counts::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:4px}
+  .counts .cats{display:flex;flex-wrap:wrap;gap:4px;width:100%;margin-bottom:4px}
+  .cchip{border:1px solid var(--stroke);background:rgba(255,255,255,.06);color:var(--dim);font:inherit;
+    font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;padding:4px 8px;
+    border-radius:8px;cursor:pointer;transition:.13s}
+  .cchip:hover{background:rgba(255,255,255,.18);color:var(--text)}
+  .cchip.on{background:var(--accent);color:#06231f;border-color:transparent}
+  .ccount{border:1px solid transparent;background:transparent;color:var(--text);font:inherit;
+    padding:2px 6px;border-radius:7px;cursor:pointer;transition:.13s;display:flex;align-items:baseline;
+    gap:5px;text-align:left}
+  .ccount:hover{background:rgba(255,255,255,.14)}
+  .ccount.on{background:var(--accent);color:#06231f}
+  .ccount.on i{color:#06231f}
+  .ccount i{font-style:normal;font-size:10px;color:var(--dim)}
+  .ccount b{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stat.click{cursor:pointer;border-radius:8px;padding:2px 5px;margin:-2px -5px;transition:.13s}
+  .stat.click:hover{background:rgba(255,255,255,.14)}
+  .stat.click.on{background:var(--accent);color:#06231f}
+  .stat.click.on span{color:#06231f}
   #tip{position:absolute;pointer-events:none;background:rgba(10,16,20,.86);border:1px solid var(--stroke);
     border-radius:9px;padding:6px 9px;font-size:11.5px;line-height:1.45;display:none;max-width:220px;
     box-shadow:var(--shadow);backdrop-filter:blur(8px)}
   #tip b{color:var(--accent)}
-  #toast{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);background:rgba(10,16,20,.86);
+  #toast{position:absolute;left:50%;bottom:126px;transform:translateX(-50%);background:rgba(10,16,20,.86);
     border:1px solid var(--stroke);border-radius:11px;padding:9px 15px;font-size:12.5px;opacity:0;
     transition:opacity .35s, transform .35s;box-shadow:var(--shadow)}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
@@ -153,10 +178,10 @@
 
 <div id="hud">
   <div class="panel" id="topleft">
-    <div class="clock"><span id="clock">07:00</span><span class="phase" id="phase">Morning</span></div>
+    <div class="clock"><span id="clock">7:00<span class="ampm">am</span></span><span class="phase" id="phase">Morning</span></div>
     <div class="stats">
-      <div class="stat"><b id="pop">0</b><span>Residents</span></div>
-      <div class="stat"><b id="jobs">0</b><span>Jobs</span></div>
+      <div class="stat click" id="statPop" title="Show where people live"><b id="pop">0</b><span>Residents</span></div>
+      <div class="stat click" id="statJobs" title="Show where people work"><b id="jobs">0</b><span>Jobs</span></div>
       <div class="stat"><b id="outside">0</b><span>Out &amp; about</span></div>
     </div>
     <div class="counts" id="counts"></div>
@@ -167,7 +192,6 @@
       <button data-mode="view" class="on">View</button>
       <button data-mode="edit">Edit</button>
     </div>
-    <button class="btn" id="btnMetro" title="Transit map (M)">Transit</button>
     <button class="btn" id="btnNew">New City</button>
     <button class="btn" id="btnSave">Save</button>
     <button class="btn" id="btnLoad">Load</button>
@@ -175,15 +199,29 @@
   </div>
 
   <div class="panel" id="bottomright">
-    <div class="seg" id="speedseg">
-      <button data-sp="0">❚❚</button>
-      <button data-sp="1" class="on">1×</button>
-      <button data-sp="4">4×</button>
-      <button data-sp="16">16×</button>
+    <div class="brow">
+      <div class="seg" id="speedseg">
+        <button data-sp="0" title="Pause (Space)">❚❚</button>
+        <button data-sp="1" class="on" title="Real time — 1 second per second">1×</button>
+        <button data-sp="60" title="1 minute per second">60×</button>
+        <button data-sp="600" title="10 minutes per second — a full day in 2½ min">600×</button>
+      </div>
+      <span class="lbl">Hour</span>
+      <input type="range" id="timeslider" min="0" max="23.99" step="0.01" value="7">
+      <button class="btn" id="btnReset" title="Reset camera (R)">Reset view</button>
     </div>
-    <span class="lbl">Hour</span>
-    <input type="range" id="timeslider" min="0" max="23.99" step="0.01" value="7">
-    <button class="btn" id="btnReset" title="Reset camera (R)">Reset view</button>
+    <div class="brow">
+      <span class="lbl">People</span>
+      <div class="seg" id="densityseg">
+        <button data-dn="0" title="Fewest figures — lightest on the GPU">Light</button>
+        <button data-dn="1" class="on">Medium</button>
+        <button data-dn="2">Heavy</button>
+        <button data-dn="3" title="Most figures — heaviest on the GPU">Very heavy</button>
+      </div>
+      <span class="lbl">Size</span>
+      <input type="range" id="pplsize" min="40" max="240" step="5" value="100">
+      <b class="num" id="pplsizev">1.0×</b>
+    </div>
   </div>
 
   <div class="panel" id="palette"></div>
@@ -209,6 +247,10 @@
     <div class="drow">
       <label>City size <b id="dpopv"></b></label>
       <div class="opts" id="dpop"></div>
+    </div>
+    <div class="drow">
+      <label>Layout <b id="dlayv"></b></label>
+      <div class="opts" id="dlay"></div>
     </div>
     <div class="dnote">The map is the whole buildable area. The city fills part of it — the rest is
       open country you can expand into.</div>
@@ -269,8 +311,15 @@ const CITY_SIZES = [
   {n:'Metropolis', fw:[26,31], fh:[17,21], biz:3, per:1450},
 ];
 
-const DAY_SECONDS = 420;             // real seconds for one full day at 1x
-const MAX_AGENTS  = 2400;
+const DAY_SECONDS = 86400;           // real seconds for one full day at 1x — 1x is real time
+const MAX_AGENTS  = 16000;
+/* How many figures to draw, as a multiple of the "one figure per 62 residents" baseline. */
+const DENSITY = [
+  {n:'Light',      k:0.70},
+  {n:'Medium',     k:2.00},
+  {n:'Heavy',      k:3.80},
+  {n:'Very heavy', k:6.00},
+];
 
 const isStreetIdx = i => ((i % PITCH) + PITCH) % PITCH === PITCH - 1;
 
@@ -366,7 +415,7 @@ const FACADES = [
 ];
 const STYLES = ['Modern','Art deco','Glass','Gothic','Brick'];
 const STYLE_TINTS = [[4,5,6,7,0],[0,1,5,4,2],[6,7,5,4,6],[5,4,3,1,0],[2,3,1,2,3]];
-const SPORTS = ['Soccer','Tennis','Basketball'];
+const SPORTS = ['Soccer','Tennis','Basketball','Athletics'];
 const WARM_TINTS = [0,1,2,3,4,1,0,2];
 const COOL_TINTS = [6,7,5,4,6,7,0,5];
 
@@ -386,6 +435,8 @@ const TYPES = {
 
   stadium:   {label:'Stadium',      cat:'Civic',   kind:'building', use:'work', w:7, d:7, stories:9,
               minS:4, maxS:20, minW:5, maxW:11, spans:1, leisure:1, sw:'#cfd6d2', job:0.55},
+  shopping:  {label:'Shopping',     cat:'Work',    kind:'building', use:'work', w:3, d:3, stories:4,
+              minS:2, maxS:14, minW:2, maxW:5, leisure:1, sw:'#e0a86a', job:2.6},
   mall:      {label:'Shopping Mall', cat:'Work',   kind:'building', use:'work', w:5, d:5, stories:3,
               minS:2, maxS:8, minW:3, maxW:11, spans:1, leisure:1, hosts:'building', sw:'#e0c9a8', job:2.4},
   factory:   {label:'Factory',      cat:'Work',    kind:'building', use:'work', w:6, d:4, stories:2,
@@ -396,6 +447,8 @@ const TYPES = {
               minD:2, maxD:12, spans:1, hosts:'transit', sw:'#2f6b3a'},
   lake:      {label:'Lake',         cat:'Green', w:5, d:5, kind:'green', use:'leisure', minW:3, maxW:5, sw:'#3fa6a0'},
   sports:    {label:'Sports Field', cat:'Green', w:4, d:3, kind:'green', use:'leisure', minW:3, maxW:5, sw:'#6fae52'},
+  sportspark:{label:'Sports Park',  cat:'Green', w:6, d:5, kind:'green', use:'leisure', minW:4, maxW:10,
+              minD:4, maxD:10, spans:1, sw:'#8fc85e'},
   plaza:     {label:'Plaza',        cat:'Green', w:2, d:2, kind:'green', use:'leisure', minW:2, maxW:4, sw:'#d8cbb2'},
   prom:      {label:'Promenade',    cat:'Green', w:3, d:1, kind:'green', use:'leisure', minW:2, maxW:6, minD:1, maxD:3, sw:'#c9b799'},
 
@@ -411,6 +464,12 @@ const TYPES = {
               minS:60, maxS:300, minW:4, maxW:5, sw:'#a9c2cc', res:1.1, job:1.5},
   arch:      {label:'Great Arch',   cat:'Landmarks', w:4, d:2, stories:40, kind:'landmark', use:'leisure',
               minS:15, maxS:90, minW:3, maxW:6, minD:1, maxD:4, sw:'#cfc4b4'},
+  statue:    {label:'Statue',       cat:'Landmarks', w:2, d:2, stories:0, kind:'landmark', use:'leisure',
+              minW:1, maxW:3, noTint:1, sw:'#9d8a5f'},
+  fountain:  {label:'Fountain',     cat:'Landmarks', w:2, d:2, stories:0, kind:'landmark', use:'leisure',
+              minW:2, maxW:4, noTint:1, sw:'#7fc3d2'},
+  cathedral: {label:'Cathedral',    cat:'Landmarks', w:4, d:6, stories:14, kind:'landmark', use:'leisure',
+              minS:8, maxS:28, minW:3, maxW:6, minD:4, maxD:10, spans:1, sw:'#ded2ba', job:0.45},
 };
 
 /* Old saves used one type per size; fold them into the new ones. */
@@ -425,6 +484,19 @@ const LEGACY = {
 
 const CATS = ['Housing','Work','Civic','Green','Transit','Landmarks'];
 
+/* How a generated city is planned. */
+const LAYOUTS = [
+  {k:'random',    n:'Random',
+   d:'No planning at all — every block takes whatever it feels like.'},
+  {k:'standard',  n:'Standard',
+   d:'Business centres by the water, neighbourhoods around them, one great park.'},
+  {k:'organized', n:'Organized',
+   d:'Offices zoned together well back from the water; homes, schools and shops kept separate.'},
+];
+const layoutOf = k => LAYOUTS.find(l => l.k === k) || LAYOUTS[1];
+/* One big tournament-grade sports complex per 250,000 residents, always ≥ 1. */
+const SPORT_ZONE_PER = 250000;
+
 function capacityOf(o){
   const T = TYPES[o.type];
   if(!T) return {res:0, jobs:0};
@@ -438,10 +510,13 @@ function defaultSpec(type){
   return {type, w:T.w, d:T.d, stories:T.stories || 0, style:0, sport:0,
           tint: T.use === 'home' ? 0 : 6};
 }
+const NO_STYLE = {stadium:1, factory:1, statue:1, fountain:1, cathedral:1};
 const hasStyle = type => {
   const T = TYPES[type];
-  return T && (T.kind === 'building' || T.kind === 'landmark') && type !== 'stadium' && type !== 'factory';
+  return T && (T.kind === 'building' || T.kind === 'landmark') && !NO_STYLE[type];
 };
+/* Sports venues agents will travel to for a kickabout. */
+const isSportSite = o => o && (o.type === 'sports' || o.type === 'sportspark');
 function randStyle(){ const r = rnd(); return r < 0.42 ? 0 : r < 0.6 ? 1 : r < 0.78 ? 2 : r < 0.88 ? 3 : 4; }
 function tintForStyle(style, type){
   const arr = STYLE_TINTS[clamp(style | 0, 0, 4)];
@@ -510,17 +585,24 @@ applyCamera();
    ========================================================================== */
 
 const V = (r,g,b) => new THREE.Vector3(r,g,b);
+/* lit  = fraction of homes with a light on
+   litW = fraction of workplaces with a light on — offices wind down through the
+          evening and are dark by 21:00; flats stay up later and are dark by 23:00.
+   lit24 = round-the-clock places (hospitals) barely dim at all. */
 const STOPS = [
-  {h:0.0,  top:[.020,.035,.075], mid:[.035,.055,.105], bot:[.058,.078,.130], sun:[.42,.55,.85],  si:0.13, hemi:0.20, fog:[.050,.070,.110], night:1.00, lit:0.30},
-  {h:4.4,  top:[.030,.048,.100], mid:[.055,.078,.145], bot:[.090,.105,.170], sun:[.45,.56,.86],  si:0.15, hemi:0.24, fog:[.070,.090,.140], night:1.00, lit:0.24},
-  {h:6.1,  top:[.150,.235,.470], mid:[.540,.415,.470], bot:[.930,.600,.420], sun:[1.00,.545,.320],si:0.62, hemi:0.46, fog:[.700,.540,.470], night:0.52, lit:0.30},
-  {h:7.6,  top:[.275,.455,.800], mid:[.580,.720,.905], bot:[.865,.865,.870], sun:[1.00,.885,.745],si:1.45, hemi:0.78, fog:[.795,.840,.870], night:0.08, lit:0.09},
-  {h:12.0, top:[.200,.440,.860], mid:[.500,.710,.950], bot:[.805,.890,.970], sun:[1.00,.970,.920],si:1.88, hemi:0.95, fog:[.760,.860,.930], night:0.00, lit:0.03},
-  {h:16.0, top:[.220,.450,.845], mid:[.550,.720,.930], bot:[.880,.885,.880], sun:[1.00,.930,.820],si:1.66, hemi:0.88, fog:[.800,.865,.905], night:0.00, lit:0.05},
-  {h:18.4, top:[.195,.320,.620], mid:[.720,.550,.520], bot:[1.00,.680,.400], sun:[1.00,.630,.340],si:1.10, hemi:0.58, fog:[.865,.625,.445], night:0.16, lit:0.20},
-  {h:19.9, top:[.100,.150,.375], mid:[.360,.275,.440], bot:[.780,.420,.380], sun:[.92,.470,.360], si:0.30, hemi:0.32, fog:[.430,.305,.365], night:0.68, lit:0.44},
-  {h:21.4, top:[.030,.050,.115], mid:[.055,.080,.155], bot:[.115,.105,.175], sun:[.44,.55,.85],  si:0.15, hemi:0.24, fog:[.075,.090,.145], night:1.00, lit:0.46},
-  {h:24.0, top:[.020,.035,.075], mid:[.035,.055,.105], bot:[.058,.078,.130], sun:[.42,.55,.85],  si:0.13, hemi:0.20, fog:[.050,.070,.110], night:1.00, lit:0.30},
+  {h:0.0,  top:[.020,.035,.075], mid:[.035,.055,.105], bot:[.058,.078,.130], sun:[.42,.55,.85],  si:0.13, hemi:0.20, fog:[.050,.070,.110], night:1.00, lit:0.055, litW:0.015, lit24:0.34},
+  {h:4.4,  top:[.030,.048,.100], mid:[.055,.078,.145], bot:[.090,.105,.170], sun:[.45,.56,.86],  si:0.15, hemi:0.24, fog:[.070,.090,.140], night:1.00, lit:0.040, litW:0.015, lit24:0.30},
+  {h:6.1,  top:[.150,.235,.470], mid:[.540,.415,.470], bot:[.930,.600,.420], sun:[1.00,.545,.320],si:0.62, hemi:0.46, fog:[.700,.540,.470], night:0.52, lit:0.260, litW:0.080, lit24:0.36},
+  {h:7.6,  top:[.275,.455,.800], mid:[.580,.720,.905], bot:[.865,.865,.870], sun:[1.00,.885,.745],si:1.45, hemi:0.78, fog:[.795,.840,.870], night:0.08, lit:0.120, litW:0.180, lit24:0.24},
+  {h:12.0, top:[.200,.440,.860], mid:[.500,.710,.950], bot:[.805,.890,.970], sun:[1.00,.970,.920],si:1.88, hemi:0.95, fog:[.760,.860,.930], night:0.00, lit:0.030, litW:0.110, lit24:0.14},
+  {h:16.0, top:[.220,.450,.845], mid:[.550,.720,.930], bot:[.880,.885,.880], sun:[1.00,.930,.820],si:1.66, hemi:0.88, fog:[.800,.865,.905], night:0.00, lit:0.050, litW:0.140, lit24:0.16},
+  {h:18.4, top:[.195,.320,.620], mid:[.720,.550,.520], bot:[1.00,.680,.400], sun:[1.00,.630,.340],si:1.10, hemi:0.58, fog:[.865,.625,.445], night:0.16, lit:0.260, litW:0.280, lit24:0.34},
+  {h:19.9, top:[.100,.150,.375], mid:[.360,.275,.440], bot:[.780,.420,.380], sun:[.92,.470,.360], si:0.30, hemi:0.32, fog:[.430,.305,.365], night:0.68, lit:0.520, litW:0.190, lit24:0.42},
+  {h:21.0, top:[.042,.062,.140], mid:[.070,.095,.175], bot:[.140,.125,.195], sun:[.44,.55,.85],  si:0.17, hemi:0.26, fog:[.090,.105,.160], night:0.94, lit:0.540, litW:0.045, lit24:0.42},
+  {h:22.0, top:[.030,.050,.115], mid:[.055,.080,.155], bot:[.115,.105,.175], sun:[.44,.55,.85],  si:0.15, hemi:0.24, fog:[.075,.090,.145], night:1.00, lit:0.430, litW:0.030, lit24:0.40},
+  {h:23.0, top:[.026,.043,.100], mid:[.048,.070,.140], bot:[.096,.096,.160], sun:[.43,.55,.85],  si:0.14, hemi:0.22, fog:[.066,.082,.132], night:1.00, lit:0.150, litW:0.022, lit24:0.38},
+  {h:23.6, top:[.022,.038,.085] ,mid:[.040,.060,.120], bot:[.075,.086,.145], sun:[.42,.55,.85],  si:0.13, hemi:0.21, fog:[.056,.075,.120], night:1.00, lit:0.075, litW:0.018, lit24:0.36},
+  {h:24.0, top:[.020,.035,.075], mid:[.035,.055,.105], bot:[.058,.078,.130], sun:[.42,.55,.85],  si:0.13, hemi:0.20, fog:[.050,.070,.110], night:1.00, lit:0.055, litW:0.015, lit24:0.34},
 ];
 const sky3 = (a,b,t) => [lerp(a[0],b[0],t), lerp(a[1],b[1],t), lerp(a[2],b[2],t)];
 
@@ -534,6 +616,7 @@ function dayPalette(h){
     sun: sky3(A.sun,B.sun,t), fog: sky3(A.fog,B.fog,t),
     si: lerp(A.si,B.si,t), hemi: lerp(A.hemi,B.hemi,t),
     night: lerp(A.night,B.night,t), lit: lerp(A.lit,B.lit,t),
+    litW: lerp(A.litW,B.litW,t), lit24: lerp(A.lit24,B.lit24,t),
   };
 }
 function sunDirection(h){
@@ -694,27 +777,93 @@ scene.add(water);
    5.  MATERIALS + GEOMETRY HELPERS
    ========================================================================== */
 
+/* Window lighting comes in three bands, chosen per-building by the whole part of
+   aSeed: 0-9 homes, 10-19 workplaces, 20-29 round-the-clock (hospitals). */
 const cityU = {
-  uNight:{value:0}, uLit:{value:0.08},
+  uNight:{value:0}, uLit:{value:0.08}, uLitW:{value:0.08}, uLit24:{value:0.30},
   uWarm:{value:new THREE.Vector3(1.0, 0.72, 0.38)},
 };
+const LIT_HOME = 0, LIT_WORK = 10, LIT_24 = 20;
+
+/* ---- focus view -----------------------------------------------------------
+   Picking a category or a building type in the HUD washes the rest of the city
+   out to a pale ghost so the chosen thing reads instantly, the way the transit
+   view already does for the networks. Whether a fragment belongs to the chosen
+   set is baked into the geometry as aFocus during the rebuild, so one uniform
+   turns the whole effect on and off. ---------------------------------------- */
+const focusU = {uFocusOn:{value:0}};
+let focusKey = 0;
+function withFocus(mat){
+  const prev = mat.onBeforeCompile;
+  const prevKey = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+  const myKey = 'focus' + (++focusKey) + prevKey;
+  mat.onBeforeCompile = (sh, renderer) => {
+    if(prev) prev(sh, renderer);
+    sh.uniforms.uFocusOn = focusU.uFocusOn;
+    sh.vertexShader = 'attribute float aFocus;\nvarying float vFocus;\n' + sh.vertexShader;
+    sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n  vFocus = aFocus;');
+    sh.fragmentShader = 'varying float vFocus;\nuniform float uFocusOn;\n' + sh.fragmentShader;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      if (uFocusOn > 0.5 && vFocus < 0.5) {
+        float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+        gl_FragColor.rgb = mix(vec3(lum * 0.62 + 0.10), gl_FragColor.rgb, 0.16);
+        gl_FragColor.a *= 0.26;
+      }`);
+  };
+  mat.customProgramCacheKey = () => myKey;
+  return mat;
+}
+/* The transit view and the focus view both dial the city back, in different
+   ways, so one place owns the material state for both. Toggling transparency
+   recompiles shaders, so this only touches them on a real change. */
+let viewMatState = '';
+function syncViewMaterials(){
+  const metro = !!state.metro, foc = !!state.focus;
+  const want = (metro ? 'm' : '') + (foc ? 'f' : '');
+  focusU.uFocusOn.value = foc ? 1 : 0;
+  if(viewMatState === want) return;
+  viewMatState = want;
+  const back = metro || foc;
+  const set = (mat, o2) => {
+    if(!mat) return;
+    mat.transparent = back || mat === matSign;
+    mat.opacity = metro ? o2 : 1;
+    mat.depthWrite = mat === matSign ? false : !back;
+    mat.needsUpdate = true;
+  };
+  set(matCity, 0.11); set(matDetail, 0.10); set(matShop, 0.14); set(matSign, 1);
+  // foliage and ground only recede for the transit view; the focus view keeps
+  // them, because a park's trees are the whole point of highlighting parks
+  const soft = (mat, o2) => {
+    if(!mat) return;
+    mat.transparent = metro; mat.opacity = metro ? o2 : 1;
+    mat.depthWrite = !metro; mat.needsUpdate = true;
+  };
+  soft(matTrunk, 0.10); soft(matCanopy, 0.10); soft(terrainMat, 0.42);
+}
 
 function withWindows(mat){
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uNight = cityU.uNight;
     sh.uniforms.uLit = cityU.uLit;
+    sh.uniforms.uLitW = cityU.uLitW;
+    sh.uniforms.uLit24 = cityU.uLit24;
     sh.uniforms.uWarm = cityU.uWarm;
     sh.vertexShader = 'attribute float aSeed;\nvarying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\n' + sh.vertexShader;
     sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vSeed = aSeed;
       vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vWN = normalize(mat3(modelMatrix) * objectNormal);`);
-    sh.fragmentShader = 'varying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\nuniform float uNight;\nuniform float uLit;\nuniform vec3 uWarm;\n' + sh.fragmentShader;
+    sh.fragmentShader = 'varying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\nuniform float uNight;\nuniform float uLit;\nuniform float uLitW;\nuniform float uLit24;\nuniform vec3 uWarm;\n' + sh.fragmentShader;
     sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float winLit = 0.0;
       if (vSeed > 0.0005) {
         float sty = floor(vSeed);
         float sdd = fract(vSeed);
+        float band = floor(sty / 10.0 + 0.001);
+        sty -= band * 10.0;
+        float thr = band < 0.5 ? uLit : (band < 1.5 ? uLitW : uLit24);
         float cw = 3.0, x0 = 0.13, x1 = 0.87, y0 = 0.26, y1 = 0.90, base = 7.2;
         if (sty > 3.5)      { cw = 3.7; x0 = 0.29; x1 = 0.71; y0 = 0.30; y1 = 0.84; }
         else if (sty > 2.5) { cw = 2.3; x0 = 0.28; x1 = 0.72; y0 = 0.12; y1 = 0.93; }
@@ -733,7 +882,7 @@ function withWindows(mat){
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55 + vec3(0.05,0.09,0.11), win * 0.78);
         float hsh = fract(sin(cu * 12.9898 + cv * 78.233 + sdd * 411.7) * 43758.5453);
         float flick = 0.85 + 0.15 * step(0.5, fract(hsh * 3.0));
-        winLit = win * step(hsh, uLit) * flick;
+        winLit = win * step(hsh, thr) * flick;
       }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       totalEmissiveRadiance += uWarm * winLit * uNight * 2.6;`);
@@ -742,14 +891,14 @@ function withWindows(mat){
   return mat;
 }
 
-const matCity = withWindows(new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.78, metalness:0.06}));
-const matDetail = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.94, metalness:0.0});
-const matShop = new THREE.MeshBasicMaterial({vertexColors:true});
+const matCity = withFocus(withWindows(new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.78, metalness:0.06})));
+const matDetail = withFocus(new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.94, metalness:0.0}));
+const matShop = withFocus(new THREE.MeshBasicMaterial({vertexColors:true}));
 
 /* ---- building emblems -----------------------------------------------------
    A small canvas atlas of symbols, mapped onto quads on roofs and facades. */
 const GLYPH = {hospital:0, library:1, school:2, office:3, factory:4, mall:5, stadium:6, subway:7,
-               apartments:8, tramstop:9};
+               apartments:8, tramstop:9, shopping:10};
 function makeSignAtlas(){
   const cnv = document.createElement('canvas');
   if(!cnv || typeof cnv.getContext !== 'function') return null;
@@ -878,16 +1027,49 @@ function makeSignAtlas(){
     figure(p.c - 24, p.m + 2, 1.0, '#3f6b8c');
     figure(p.c + 16, p.m + 2, 0.92, '#c96a3c');
     figure(p.c + 40, p.m + 14, 0.58, '#4f8f74'); }
+  // 10 shopping — a grocery basket
+  { const p = plate(10);
+    const bw = 76, bh = 44, ty = p.m - 2;
+    // handle
+    x.strokeStyle = '#4a5b6b'; x.lineWidth = 8; x.lineCap = 'round';
+    x.beginPath(); x.arc(p.c, ty - 2, 22, Math.PI, 0); x.stroke();
+    // tapered basket body
+    x.fillStyle = '#3f7d5e';
+    x.beginPath();
+    x.moveTo(p.c - bw / 2, ty);
+    x.lineTo(p.c + bw / 2, ty);
+    x.lineTo(p.c + bw / 2 - 13, ty + bh);
+    x.lineTo(p.c - bw / 2 + 13, ty + bh);
+    x.closePath(); x.fill();
+    // rim
+    x.fillStyle = '#2f6349';
+    x.fillRect(p.c - bw / 2 - 4, ty - 8, bw + 8, 10);
+    // basket weave
+    x.strokeStyle = 'rgba(255,255,255,0.5)'; x.lineWidth = 4;
+    for(let i = -1; i <= 1; i++){
+      x.beginPath();
+      x.moveTo(p.c + i * 19, ty + 5);
+      x.lineTo(p.c + i * 13, ty + bh - 4);
+      x.stroke();
+    }
+    x.beginPath(); x.moveTo(p.c - bw / 2 + 5, ty + 22); x.lineTo(p.c + bw / 2 - 5, ty + 22); x.stroke();
+    // groceries poking out
+    x.fillStyle = '#d8503f';
+    x.beginPath(); x.arc(p.c - 20, ty - 12, 11, 0, 7); x.fill();
+    x.fillStyle = '#e8a83c';
+    x.beginPath(); x.arc(p.c + 2, ty - 15, 10, 0, 7); x.fill();
+    x.fillStyle = '#7fb04a';
+    x.beginPath(); x.ellipse(p.c + 23, ty - 11, 12, 9, -0.4, 0, 7); x.fill(); }
   const tex = new THREE.CanvasTexture(cnv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;
 }
 const signAtlas = makeSignAtlas();
-const matSign = new THREE.MeshBasicMaterial({map:signAtlas, transparent:true, alphaTest:0.28,
-  side:THREE.DoubleSide, depthWrite:false});
+const matSign = withFocus(new THREE.MeshBasicMaterial({map:signAtlas, transparent:true, alphaTest:0.28,
+  side:THREE.DoubleSide, depthWrite:false}));
 
-function newSigns(){ return {p:[], n:[], uv:[], idx:[], v:0}; }
+function newSigns(){ return {p:[], n:[], uv:[], f:[], idx:[], v:0}; }
 function signQuad(S, g, cx, cy, cz, w, h, face){
   if(!signAtlas) return;
   const u0 = (g % 4) * 0.25, v0 = 1 - (Math.floor(g / 4) + 1) * 0.25;
@@ -912,6 +1094,7 @@ function signQuad(S, g, cx, cy, cz, w, h, face){
     S.p.push(P[i][0], P[i][1], P[i][2]);
     S.n.push(nrm[0], nrm[1], nrm[2]);
     S.uv.push(UV[i][0], UV[i][1]);
+    S.f.push(curFocus);
   }
   S.idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   S.v += 4;
@@ -922,6 +1105,7 @@ function signGeometry(S){
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(S.p), 3));
   g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(S.n), 3));
   g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(S.uv), 2));
+  g.setAttribute('aFocus', new THREE.BufferAttribute(new Float32Array(S.f), 1));
   g.setIndex(S.idx);
   return g;
 }
@@ -1008,9 +1192,13 @@ const BOX_I = new Uint16Array(36);
   }
 })();
 
+/* Everything emitted while `curFocus` is 0 washes out when a focus view is on;
+   1 keeps its full colour. Set once per object during the rebuild. */
+let curFocus = 1;
 function newBatch(cap = 4096){
   return {p:new Float32Array(cap*3), nr:new Float32Array(cap*3), c:new Float32Array(cap*3),
-          sd:new Float32Array(cap), idx:new Uint32Array(cap*2), v:0, ic:0, geo:[]};
+          sd:new Float32Array(cap), fo:new Float32Array(cap), idx:new Uint32Array(cap*2),
+          v:0, ic:0, geo:[]};
 }
 function grow(b, addV, addI){
   if(b.v + addV > b.sd.length){
@@ -1020,6 +1208,7 @@ function grow(b, addV, addI){
     const nr = new Float32Array(cap*3); nr.set(b.nr); b.nr = nr;
     const c = new Float32Array(cap*3); c.set(b.c); b.c = c;
     const sd = new Float32Array(cap); sd.set(b.sd); b.sd = sd;
+    const fo = new Float32Array(cap); fo.set(b.fo); b.fo = fo;
   }
   if(b.ic + addI > b.idx.length){
     let cap = b.idx.length;
@@ -1034,16 +1223,18 @@ function batchGeometry(b){
   g.setAttribute('normal', new THREE.BufferAttribute(b.nr.subarray(0, b.v*3), 3));
   g.setAttribute('color', new THREE.BufferAttribute(b.c.subarray(0, b.v*3), 3));
   g.setAttribute('aSeed', new THREE.BufferAttribute(b.sd.subarray(0, b.v), 1));
+  g.setAttribute('aFocus', new THREE.BufferAttribute(b.fo.subarray(0, b.v), 1));
   g.setIndex(new THREE.BufferAttribute(b.idx.slice(0, b.ic), 1));
   return g;
 }
 function attach(g, color, seed){
   const n = g.attributes.position.count;
-  const c = new Float32Array(n * 3), s = new Float32Array(n);
+  const c = new Float32Array(n * 3), s = new Float32Array(n), f = new Float32Array(n);
   const r0 = s2l(color[0]), g0 = s2l(color[1]), b0 = s2l(color[2]);
-  for(let i = 0; i < n; i++){ c[i*3] = r0; c[i*3+1] = g0; c[i*3+2] = b0; s[i] = seed; }
+  for(let i = 0; i < n; i++){ c[i*3] = r0; c[i*3+1] = g0; c[i*3+2] = b0; s[i] = seed; f[i] = curFocus; }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   g.setAttribute('aSeed', new THREE.BufferAttribute(s, 1));
+  g.setAttribute('aFocus', new THREE.BufferAttribute(f, 1));
   g.deleteAttribute('uv');
   return g;
 }
@@ -1064,6 +1255,7 @@ function box(b, w, h, d, x, y, z, color, seed, ry){
     b.nr[o] = nx; b.nr[o+1] = ny; b.nr[o+2] = nz;
     b.c[o] = r; b.c[o+1] = gc; b.c[o+2] = bc;
     b.sd[base + i] = s;
+    b.fo[base + i] = curFocus;
     o += 3;
   }
   for(let i = 0; i < 36; i++) b.idx[b.ic + i] = base + BOX_I[i];
@@ -1094,6 +1286,7 @@ function slab(b, w, d, x, y, z, color){
     b.nr[o] = 0; b.nr[o+1] = 1; b.nr[o+2] = 0;
     b.c[o] = r; b.c[o+1] = gc; b.c[o+2] = bc;
     b.sd[base + i] = 0;
+    b.fo[base + i] = curFocus;
     o += 3;
   }
   const I = b.idx, k = b.ic;
@@ -1122,6 +1315,10 @@ function objCentre(o){
 function objHeight(o){
   const T = TYPES[o.type];
   if(o.type === 'arch') return storiesOf(o) * STORY * 0.9;
+  if(o.type === 'cathedral') return Math.max(11, storiesOf(o) * STORY) * 2.0;
+  if(o.type === 'statue') return Math.min(footprint(o).w, footprint(o).d) * CELL * 0.36 + 8;
+  if(o.type === 'fountain') return 6;
+  if(o.type === 'sportspark') return 16;
   if(o.type === 'stadium') return Math.max(9, storiesOf(o) * STORY * 0.62) * 1.5;
   if(o.type === 'forest') return 12;
   return (o.stories || T.stories) ? storiesOf(o) * STORY + 6 : 3;
@@ -1136,10 +1333,77 @@ let lamps = [];        // {x,y,z}
 let glowParts = null;  // shopfronts and signs: dark by day, warm at night
 let lakeParts = null;  // inland water, drawn with the sea shader
 
+/* Which evening-lighting curve a building follows. */
+function litBand(type){
+  if(type === 'hospital') return LIT_24;
+  const T = TYPES[type];
+  if(!T) return LIT_HOME;
+  return (T.use === 'home' || T.use === 'mixed' || T.use === 'leisure') ? LIT_HOME : LIT_WORK;
+}
+
 function addTree(x, y, z, s, tint){
   const g = 0.55 + rnd() * 0.5;
   const c = tint || [lerp(0.22,0.40,rnd()) , lerp(0.42,0.62,rnd()), lerp(0.20,0.32,rnd())];
-  trees.push({x, y, z, s, c, g});
+  trees.push({x, y, z, s, c, g, f: curFocus});
+}
+
+/* A little park on the roof: lawn, a looping path, raised beds, benches, a
+   pergola and a safety rail. The middle is left clear for whatever crown the
+   architectural style puts there, so everything sits in a ring near the edge. */
+const DECK  = [0.735, 0.660, 0.545];
+const PLANT = [0.505, 0.420, 0.345];
+function buildRoofGarden(L, cx, cz, w, d, y){
+  const mw = w - 1.6, md = d - 1.6;
+  if(mw < 4 || md < 4) return;
+  const small = Math.min(mw, md);
+  // a loop of decking just inside the parapet
+  const inset = Math.max(1.5, small * 0.17);
+  for(const s of [-1, 1]){
+    slab(L, mw - inset * 2, 1.9, cx, y + 0.06, cz + s * (md / 2 - inset), DECK);
+    slab(L, 1.9, md - inset * 2, cx + s * (mw / 2 - inset), y + 0.06, cz, DECK);
+  }
+  // raised planting beds on the corners
+  for(const sx of [-1, 1]) for(const sz of [-1, 1]){
+    const px = cx + sx * (mw / 2 - inset * 0.42), pz = cz + sz * (md / 2 - inset * 0.42);
+    const bw = Math.min(3.4, mw * 0.20), bd = Math.min(3.4, md * 0.20);
+    box(L, bw, 0.72, bd, px, y + 0.36, pz, PLANT, 0);
+    addTree(px, y + 0.7, pz, 0.34 + rnd() * 0.2);
+  }
+  // benches facing the view
+  const nB = clamp(Math.round(small / 9), 2, 4);
+  for(let i = 0; i < nB; i++){
+    const a = (i + 0.5) / nB * Math.PI * 2;
+    const bx2 = cx + Math.cos(a) * (mw / 2 - inset * 1.25);
+    const bz2 = cz + Math.sin(a) * (md / 2 - inset * 1.25);
+    box(L, 1.9, 0.34, 0.62, bx2, y + 0.29, bz2, WOOD, 0, a);
+  }
+  // a pergola along one edge once there is room
+  if(small > 14){
+    const along = mw >= md;
+    const plen = (along ? mw : md) * 0.42;
+    const px = along ? cx : cx - (mw / 2 - inset * 1.5);
+    const pz = along ? cz - (md / 2 - inset * 1.5) : cz;
+    for(let i = -1; i <= 1; i += 2) for(let j = -1; j <= 1; j += 2)
+      box(L, 0.24, 2.4, 0.24, px + (along ? i * plen / 2 : j * 1.5),
+          y + 1.2, pz + (along ? j * 1.5 : i * plen / 2), shade(WOOD, 0.9), 0);
+    const nS = clamp(Math.round(plen / 2.2), 3, 7);
+    for(let i = 0; i < nS; i++){
+      const t = -plen / 2 + (i + 0.5) * plen / nS;
+      box(L, along ? 0.16 : 3.4, 0.14, along ? 3.4 : 0.16,
+          px + (along ? t : 0), y + 2.46, pz + (along ? 0 : t), shade(WOOD, 1.06), 0);
+    }
+  }
+  // A solid low parapet with a rail on top reads as somewhere you can stand,
+  // and costs a handful of boxes rather than a fence full of posts.
+  const RAILC = [0.62, 0.63, 0.62], PARA = [0.80, 0.79, 0.75];
+  for(const s of [-1, 1]){
+    box(L, w, 0.68, 0.30, cx, y + 0.34, cz + s * d / 2, PARA, 0);
+    box(L, 0.30, 0.68, d, cx + s * w / 2, y + 0.34, cz, PARA, 0);
+    box(L, w + 0.2, 0.13, 0.16, cx, y + 1.02, cz + s * d / 2, RAILC, 0);
+    box(L, 0.16, 0.13, d + 0.2, cx + s * w / 2, y + 1.02, cz, RAILC, 0);
+  }
+  for(const sx of [-1, 1]) for(const sz of [-1, 1])
+    box(L, 0.16, 0.34, 0.16, cx + sx * w / 2, y + 0.85, cz + sz * d / 2, RAILC, 0);
 }
 
 /* Decoration is emitted per shaft segment so it narrows with the setbacks —
@@ -1189,7 +1453,7 @@ function buildTower(o, L, seedF){
   const base = shade(FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c, tone);
   const podColor = shade(base, 0.86);
   const trimC = shade(base, style === 3 ? 0.70 : 0.78);
-  const sA = style + 0.012 + seedF * 0.96;          // style + seed, packed for the facade shader
+  const sA = litBand(o.type) + style + 0.012 + seedF * 0.96;   // band + style + seed, packed for the facade shader
 
   // podium: homes get a wider 3-4 storey base of shops, cafés and small businesses
   const podFloors = isHome ? (rnd() < 0.5 ? 3 : 4) : 2;
@@ -1226,8 +1490,10 @@ function buildTower(o, L, seedF){
     w *= taper; d *= taper;
   }
 
-  // crown
-  const greenRoof = st <= 30 && (style === 0 || style === 2);
+  // crown. Homes, schools and hospitals always get a usable roof garden;
+  // other low modern and glass blocks get a plain green roof.
+  const roofPark = isHome || o.type === 'school' || o.type === 'hospital';
+  const greenRoof = roofPark || (st <= 30 && (style === 0 || style === 2));
   box(L, w, 0.9, d, c.x, yy + 0.45, c.z, greenRoof ? GREEN_ROOF : GREEN_ROOF2, 0);
   if(style === 1){
     let cw2 = w * 0.86, cd = d * 0.86, cy = yy + 0.9;
@@ -1258,7 +1524,8 @@ function buildTower(o, L, seedF){
     box(L, w * 0.34, 2.6, d * 0.34, c.x + w * 0.16, yy + 2.2, c.z - d * 0.14, shade(base, 0.72), 0);
     if(st > 40) cyl(L, 0.22, 0.4, 12 + seedF * 14, 5, c.x - w * 0.2, yy + 7 + seedF * 7, c.z + d * 0.2, [0.3,0.32,0.34], 0);
   }
-  if(greenRoof){
+  if(roofPark) buildRoofGarden(L, c.x, c.z, w, d, yy + 0.9);
+  else if(greenRoof){
     const nT = Math.max(2, Math.round(w * d / 90));
     for(let i = 0; i < nT; i++)
       addTree(c.x + rrange(-w/2 + 1.5, w/2 - 1.5), yy + 1.2, c.z + rrange(-d/2 + 1.5, d/2 - 1.5), 0.42 + rnd() * 0.25);
@@ -1408,6 +1675,159 @@ function buildArch(o, L, seedF){
   }
 }
 
+/* ---- statue: a plinth with a bronze figure on top ------------------------- */
+function buildStatue(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const R = Math.min(f.w, f.d) * CELL * 0.5;
+  const stone = [0.80, 0.77, 0.71], stone2 = shade(stone, 0.86);
+  const bronze = [0.36, 0.44, 0.38], bronze2 = shade(bronze, 0.82);
+  const ry = ((o.rot | 0) & 3) * Math.PI / 2 + 0.35;
+  slab(L, f.w * CELL - 1.2, f.d * CELL - 1.2, c.x, 0.07, c.z, [0.80, 0.77, 0.71]);
+  disc(L, R * 0.86, c.x, 0.09, c.z, shade(PAVE2, 0.98), 24);
+  // stepped plinth
+  const s = R * 0.34;
+  box(L, s * 2.0, 0.5, s * 2.0, c.x, 0.32, c.z, stone2, 0, ry);
+  box(L, s * 1.6, 0.5, s * 1.6, c.x, 0.82, c.z, stone2, 0, ry);
+  const pH = R * 0.42 + 2.2;
+  box(L, s * 1.15, pH, s * 1.15, c.x, 1.07 + pH / 2, c.z, stone, 0, ry);
+  box(L, s * 1.45, 0.42, s * 1.45, c.x, 1.07 + pH + 0.21, c.z, stone2, 0, ry);
+  // figure
+  const y0 = 1.07 + pH + 0.42;
+  const fh = R * 0.30 + 4.2;
+  const ca = Math.cos(ry), sa = Math.sin(ry);
+  const off = (dx, dz) => [c.x + dx * ca + dz * sa, c.z - dx * sa + dz * ca];
+  for(const q of [-1, 1]){
+    const [lx, lz] = off(q * fh * 0.075, 0);
+    box(L, fh * 0.10, fh * 0.42, fh * 0.13, lx, y0 + fh * 0.21, lz, bronze2, 0, ry);
+  }
+  cyl(L, fh * 0.15, fh * 0.19, fh * 0.36, 7, c.x, y0 + fh * 0.60, c.z, bronze, 0, ry);
+  box(L, fh * 0.40, fh * 0.06, fh * 0.30, c.x, y0 + fh * 0.60, c.z, bronze2, 0, ry);   // cloak line
+  const [hx, hz] = off(0, 0);
+  cyl(L, fh * 0.085, fh * 0.095, fh * 0.13, 7, hx, y0 + fh * 0.855, hz, bronze, 0, ry);
+  // one arm down, one raised
+  const [ax1, az1] = off(-fh * 0.16, 0);
+  box(L, fh * 0.07, fh * 0.32, fh * 0.07, ax1, y0 + fh * 0.60, az1, bronze2, 0, ry);
+  const [ax2, az2] = off(fh * 0.20, 0);
+  tiltBox(L, fh * 0.07, fh * 0.40, fh * 0.07, ax2, y0 + fh * 0.74, az2, bronze2, 0, -0.55, ry);
+  for(let i = 0; i < 4; i++){
+    const a = i * Math.PI / 2 + 0.7;
+    box(L, 2.1, 0.42, 0.75, c.x + Math.cos(a) * R * 0.72, 0.5, c.z + Math.sin(a) * R * 0.72, WOOD, 0, a);
+  }
+  lamps.push({x: c.x + R * 0.68, z: c.z - R * 0.68});
+  lamps.push({x: c.x - R * 0.68, z: c.z + R * 0.68});
+}
+
+/* ---- fountain: tiered basins, real water, benches and lamps --------------- */
+function buildFountain(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const R = Math.min(f.w, f.d) * CELL * 0.40;
+  const stone = [0.83, 0.80, 0.74], stone2 = shade(stone, 0.87);
+  const foam = [0.86, 0.94, 0.97];
+  slab(L, f.w * CELL - 1.2, f.d * CELL - 1.2, c.x, 0.07, c.z, PAVE2);
+  disc(L, R * 1.18, c.x, 0.09, c.z, shade(PAVE, 0.98), 28);
+  cyl(L, R, R * 1.05, 1.1, 26, c.x, 0.55, c.z, stone, 0);
+  cyl(L, R * 0.90, R * 0.90, 0.9, 26, c.x, 0.50, c.z, shade(stone, 0.78), 0);
+  disc(lakeParts, R * 0.90, c.x, 0.95, c.z, [0.16, 0.44, 0.48], 28);
+  cyl(L, R * 0.20, R * 0.30, 1.5, 14, c.x, 1.75, c.z, stone2, 0);
+  cyl(L, R * 0.58, R * 0.12, 0.32, 22, c.x, 2.60, c.z, stone, 0);
+  disc(lakeParts, R * 0.50, c.x, 2.78, c.z, [0.18, 0.48, 0.52], 22);
+  cyl(L, R * 0.11, R * 0.15, 1.2, 10, c.x, 3.36, c.z, stone2, 0);
+  cyl(L, R * 0.30, R * 0.07, 0.26, 18, c.x, 4.02, c.z, stone, 0);
+  // jet and falling water
+  cyl(L, 0.10, 0.26, 2.4, 8, c.x, 5.35, c.z, foam, 0);
+  for(let i = 0; i < 8; i++){
+    const a = i * Math.PI / 4 + 0.2;
+    cyl(L, 0.07, 0.14, 1.5, 5, c.x + Math.cos(a) * R * 0.26, 3.5, c.z + Math.sin(a) * R * 0.26, foam, 0);
+  }
+  for(let i = 0; i < 4; i++){
+    const a = i * Math.PI / 2 + 0.5;
+    box(L, 2.2, 0.44, 0.8, c.x + Math.cos(a) * R * 1.30, 0.52, c.z + Math.sin(a) * R * 1.30, WOOD, 0, a);
+    addTree(c.x + Math.cos(a + 0.72) * R * 1.52, 0.05, c.z + Math.sin(a + 0.72) * R * 1.52, 0.9 + rnd() * 0.3);
+  }
+  lamps.push({x: c.x + R * 1.18, z: c.z - R * 1.18});
+  lamps.push({x: c.x - R * 1.18, z: c.z + R * 1.18});
+}
+
+/* ---- cathedral: nave, aisles, transept, west towers, crossing spire ------- */
+function buildCathedral(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const along = f.d >= f.w;                       // long axis runs in +z when true
+  const LEN = (along ? f.d : f.w) * CELL - 2.4;
+  const WID = (along ? f.w : f.d) * CELL - 2.8;
+  const H = Math.max(11, storiesOf(o) * STORY);
+  const base = FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c;
+  const stone = shade(base, 1.0), trim = shade(base, 0.80);
+  const roofc = [0.30, 0.37, 0.40], lead = [0.36, 0.40, 0.42];
+  const sA = LIT_HOME + 3 + 0.02 + seedF * 0.9;   // gothic glazing, evening light curve
+  /* (u,v) → world: u along the nave, v across it. */
+  const W2 = (u, v) => [c.x + (along ? v : u), c.z + (along ? u : v)];
+  const B = (lu, h, lv, u, y, v, col, sd) => {
+    const [px, pz] = W2(u, v);
+    box(L, along ? lv : lu, h, along ? lu : lv, px, y, pz, col, sd || 0);
+  };
+  const CY = (rt, rb, h, seg, u, y, v, col, sd, rot) => {
+    const [px, pz] = W2(u, v);
+    cyl(L, rt, rb, h, seg, px, y, pz, col, sd || 0, rot);
+  };
+  slab(L, f.w * CELL - 1.0, f.d * CELL - 1.0, c.x, 0.06, c.z, [0.80, 0.77, 0.71]);
+  B(LEN + 1.6, 1.0, WID + 1.6, 0, 0.5, 0, trim);
+  // nave and side aisles
+  B(LEN, H, WID * 0.66, 0, H / 2 + 1.0, 0, stone, sA);
+  for(const s of [-1, 1]) B(LEN * 0.90, H * 0.52, WID * 0.17, -LEN * 0.03, H * 0.26 + 1.0, s * WID * 0.415, stone, sA);
+  // transept
+  B(LEN * 0.20, H * 0.90, WID, LEN * 0.06, H * 0.45 + 1.0, 0, stone, sA);
+  // apse at the east end
+  CY(WID * 0.33, WID * 0.33, H * 0.86, 9, -LEN * 0.48, H * 0.43 + 1.0, 0, stone, sA, Math.PI / 9);
+  CY(WID * 0.36, 0.4, WID * 0.30, 9, -LEN * 0.48, H * 0.86 + 1.0 + WID * 0.15, 0, roofc, 0, Math.PI / 9);
+  // roofs
+  B(LEN + 0.8, 1.5, WID * 0.70, 0, H + 1.75, 0, roofc);
+  B(LEN * 0.22, 1.5, WID + 0.6, LEN * 0.06, H * 0.90 + 1.75, 0, roofc);
+  for(const s of [-1, 1]) B(LEN * 0.92, 0.7, WID * 0.19, -LEN * 0.03, H * 0.52 + 1.4, s * WID * 0.415, lead);
+  // flying buttresses
+  const nB = clamp(Math.round(LEN / 9), 2, 8);
+  for(let i = 0; i < nB; i++){
+    const u = -LEN * 0.40 + (i + 0.5) * (LEN * 0.72 / nB);
+    for(const s of [-1, 1]){
+      B(1.0, H * 0.62, 1.0, u, H * 0.31 + 1.0, s * WID * 0.56, trim);
+      B(1.0, 5.0, 1.0, u, H * 0.66, s * WID * 0.56, trim);
+      const [bx2, bz2] = W2(u, s * WID * 0.48);
+      const g = new THREE.BoxGeometry(along ? 0.9 : WID * 0.20, 0.9, along ? WID * 0.20 : 0.9);
+      g.rotateZ(along ? 0 : -s * 0.42); if(along) g.rotateX(s * 0.42);
+      g.translate(bx2, H * 0.60, bz2);
+      L.geo.push(attach(g, trim, 0));
+    }
+  }
+  // west front: two towers with spirelets
+  const tw = WID * 0.24, tH = H * 1.45;
+  for(const s of [-1, 1]){
+    const u = LEN * 0.5 - tw * 0.62;
+    B(tw, tH, tw, u, tH / 2 + 1.0, s * (WID * 0.5 - tw * 0.52), stone, sA);
+    B(tw + 0.9, 0.7, tw + 0.9, u, tH + 1.35, s * (WID * 0.5 - tw * 0.52), trim);
+    CY(0.25, tw * 0.72, H * 0.55, 4, u, tH + 1.7 + H * 0.275, s * (WID * 0.5 - tw * 0.52), roofc, 0, Math.PI / 4);
+  }
+  // rose window over the west door
+  const [rx2, rz2] = W2(LEN * 0.5 + 0.1, 0);
+  cyl(L, WID * 0.15, WID * 0.15, 0.5, 16, rx2, H * 0.62, rz2,
+      [0.30, 0.36, 0.50], 0, along ? 0 : Math.PI / 2);
+  cyl(L, WID * 0.11, WID * 0.11, 0.7, 16, rx2, H * 0.62, rz2, [0.55, 0.32, 0.30], 0);
+  // crossing spire and cross
+  const spireU = LEN * 0.06;
+  CY(0.3, WID * 0.20, H * 0.95, 4, spireU, H * 0.90 + 2.5 + H * 0.475, 0, roofc, 0, Math.PI / 4);
+  const [cx3, cz3] = W2(spireU, 0);
+  const yTop = H * 0.90 + 2.5 + H * 0.95;
+  box(L, 0.35, 3.0, 0.35, cx3, yTop + 1.5, cz3, trim, 0);
+  box(L, 1.6, 0.35, 0.35, cx3, yTop + 2.1, cz3, trim, 0);
+  // forecourt
+  for(let i = 0; i < 6; i++){
+    const a = rnd() * Math.PI * 2, r = Math.max(LEN, WID) * 0.55 + rnd() * 7;
+    addTree(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r, 0.9 + rnd() * 0.4);
+  }
+  const [lx2, lz2] = W2(LEN * 0.5 + 4.0, WID * 0.3);
+  lamps.push({x: lx2, z: lz2});
+  const [lx3, lz3] = W2(LEN * 0.5 + 4.0, -WID * 0.3);
+  lamps.push({x: lx3, z: lz3});
+}
+
 /* One marked-out pitch. Long axis follows the longer side. */
 function drawPitch(L, cx, cz, w, d, sport){
   const horiz = w >= d;
@@ -1417,7 +1837,35 @@ function drawPitch(L, cx, cz, w, d, sport){
     slab(L, ww, t, cx, y, cz - dd / 2, LN); slab(L, ww, t, cx, y, cz + dd / 2, LN);
     slab(L, t, dd, cx - ww / 2, y, cz, LN); slab(L, t, dd, cx + ww / 2, y, cz, LN);
   };
-  if(sport === 1){                                   // tennis
+  if(sport === 3){                                   // athletics: oval track round a grass infield
+    slab(L, w, d, cx, 0.09, cz, shade(LAWN2, 0.96));
+    const rx = w * 0.46, rz = d * 0.46;
+    const TRACK = [0.62, 0.28, 0.22], INF = shade(LAWN2, 1.08);
+    const ring = (f, col, yy, th) => {
+      const N = 32;
+      for(let i = 0; i < N; i++){
+        const a = (i + 0.5) / N * Math.PI * 2;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const seg = 2 * Math.PI * Math.max(rx, rz) / N * 1.4;
+        box(L, seg, 0.02, th, cx + ca * rx * f, yy, cz + sa * rz * f, col, 0, -(a + Math.PI / 2));
+      }
+    };
+    const lane = Math.min(rx, rz) * 0.052;
+    for(let k = 0; k < 4; k++)
+      ring(0.80 + k * 0.058, k % 2 ? TRACK : shade(TRACK, 1.09), 0.11, lane * 1.25);
+    disc(L, Math.min(rx, rz) * 0.74, cx, 0.115, cz, INF, 28);
+    if(horiz) slab(L, 0.3, rz * 1.2, cx - rx * 0.62, y, cz, LN); else slab(L, rx * 1.2, 0.3, cx, y, cz - rz * 0.62, LN);
+    for(let s2 = -1; s2 <= 1; s2 += 2){
+      const gx2 = horiz ? cx + s2 * rx * 0.62 : cx;
+      const gz2 = horiz ? cz : cz + s2 * rz * 0.62;
+      box(L, horiz ? 0.25 : 5.6, 2.0, horiz ? 5.6 : 0.25, gx2, 1.0, gz2, [0.95,0.95,0.93], 0);
+    }
+    // a short row of stands along the straight
+    const sw2 = horiz ? w * 0.42 : 2.6, sd2 = horiz ? 2.6 : d * 0.42;
+    for(let k = 0; k < 3; k++)
+      box(L, sw2, 0.5, sd2, horiz ? cx : cx - rx * 1.02 - k * 0.9,
+          0.35 + k * 0.5, horiz ? cz - rz * 1.02 - k * 0.9 : cz, [0.70,0.70,0.68], 0);
+  } else if(sport === 1){                            // tennis
     slab(L, w, d, cx, 0.09, cz, [0.34, 0.46, 0.38]);
     const cw = w * 0.74, cd = d * 0.74;
     slab(L, cw, cd, cx, 0.11, cz, [0.30, 0.46, 0.60]);
@@ -1503,7 +1951,7 @@ function buildMall(o, L, seedF){
   const W = f.w * CELL - 2.6, D = f.d * CELL - 2.6;
   const st = storiesOf(o), H = st * STORY;
   const shell = FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c;
-  const sA = clamp(o.style | 0, 0, 4) + 0.02 + seedF * 0.96;
+  const sA = LIT_WORK + clamp(o.style | 0, 0, 4) + 0.02 + seedF * 0.96;
   o._capW = W; o._capD = D; o._capY = H;
   box(L, W, H, D, c.x, H / 2, c.z, shade(shell, 0.97), sA);
   box(L, W + 1.4, 1.2, D + 1.4, c.x, H, c.z, shade(shell, 0.8), 0);
@@ -1617,7 +2065,7 @@ function buildGreen(o, L){
     }
     case 'sports': {
       const sport = o.sport | 0;
-      const tile = sport === 1 ? [15, 27] : sport === 2 ? [18, 17] : [36, 24];
+      const tile = sport === 1 ? [15, 27] : sport === 2 ? [18, 17] : sport === 3 ? [58, 42] : [36, 24];
       const fitN = (tw, th) => Math.max(1, Math.floor(W / tw)) * Math.max(1, Math.floor(D / th));
       const swap = fitN(tile[1], tile[0]) > fitN(tile[0], tile[1]);
       const tw = swap ? tile[1] : tile[0], th = swap ? tile[0] : tile[1];
@@ -1636,6 +2084,64 @@ function buildGreen(o, L){
           box(glowParts, 2.6, 0.8, 1.0, c.x + s2 * (W/2 - 1), 12.2, c.z, [1.0,0.97,0.88], 0);
         }
       }
+      break;
+    }
+    case 'sportspark': {
+      // a proper municipal complex: track, pool, courts, clubhouse, floodlights
+      const along = W >= D;
+      const LNG = along ? W : D, SHT = along ? D : W;
+      const P = (u, v) => along ? [c.x + u, c.z + v] : [c.x + v, c.z + u];
+      slab(L, W, D, c.x, 0.06, c.z, LAWN2);
+      // perimeter jogging path
+      for(const s of [-1, 1]){
+        slab(L, W - 2, 2.6, c.x, 0.09, c.z + s * (D / 2 - 1.8), shade(WALKC, 0.94));
+        slab(L, 2.6, D - 2, c.x + s * (W / 2 - 1.8), 0.09, c.z, shade(WALKC, 0.94));
+      }
+      // athletics track fills the larger half
+      {
+        const [tx, tz] = P(-LNG * 0.22, 0);
+        drawPitch(L, tx, tz, along ? LNG * 0.50 : SHT * 0.86, along ? SHT * 0.86 : LNG * 0.50, 3);
+      }
+      // swimming pool
+      {
+        const [px, pz] = P(LNG * 0.26, -SHT * 0.26);
+        const pw = along ? LNG * 0.30 : SHT * 0.36, pd = along ? SHT * 0.36 : LNG * 0.30;
+        slab(L, pw + 3.4, pd + 3.4, px, 0.08, pz, shade(PAVE2, 0.98));
+        box(L, pw + 0.9, 0.5, pd + 0.9, px, 0.3, pz, [0.86, 0.86, 0.83], 0);
+        slab(lakeParts, pw, pd, px, 0.42, pz, [0.20, 0.56, 0.62]);
+        for(let i = 0; i < 5; i++){
+          const t = -0.4 + i * 0.2;
+          if(along) slab(L, pw * 0.96, 0.18, px, 0.44, pz + pd * t, [0.92,0.95,0.96]);
+          else slab(L, 0.18, pd * 0.96, px + pw * t, 0.44, pz, [0.92,0.95,0.96]);
+        }
+        for(let i = 0; i < 3; i++){
+          const [bx2, bz2] = P(LNG * 0.26 + (i - 1) * 3.4, -SHT * 0.26 + (along ? pd/2 + 2.6 : 0));
+          box(L, 1.9, 0.4, 0.7, bx2, 0.5, bz2, [0.94,0.93,0.90], 0, along ? 0 : Math.PI/2);
+        }
+      }
+      // two hard courts
+      for(let i = 0; i < 2; i++){
+        const [qx, qz] = P(LNG * 0.26, SHT * (0.10 + i * 0.26));
+        drawPitch(L, qx, qz, along ? LNG * 0.26 : SHT * 0.22, along ? SHT * 0.22 : LNG * 0.26, i ? 1 : 2);
+      }
+      // clubhouse
+      {
+        const [hx, hz] = P(LNG * 0.44, SHT * 0.34);
+        const hw = along ? LNG * 0.14 : SHT * 0.20, hd = along ? SHT * 0.20 : LNG * 0.14;
+        box(L, hw, 4.2, hd, hx, 2.1, hz, [0.86, 0.82, 0.74], 0);
+        box(L, hw + 1.2, 0.6, hd + 1.2, hx, 4.4, hz, [0.52, 0.44, 0.38], 0);
+        box(glowParts, hw * 0.8, 1.4, hd * 0.04 + 0.3, hx, 1.9, hz + hd / 2, [1.0, 0.94, 0.80], 0);
+      }
+      // floodlights on the corners
+      for(const sx2 of [-1, 1]) for(const sz2 of [-1, 1]){
+        const px = c.x + sx2 * (W / 2 - 2.2), pz = c.z + sz2 * (D / 2 - 2.2);
+        box(L, 0.8, 15, 0.8, px, 7.5, pz, [0.42, 0.44, 0.46], 0);
+        box(glowParts, 3.0, 1.0, 1.2, px, 15.3, pz, [1.0, 0.97, 0.88], 0);
+        lamps.push({x: px, z: pz});
+      }
+      for(let i = 0; i < Math.round(W * D / 340); i++)
+        addTree(c.x + rrange(-W/2 + 1, W/2 - 1), 0.04,
+                c.z + (rnd() < 0.5 ? -1 : 1) * (D / 2 - 1 - rnd() * 2), 0.85 + rnd() * 0.5);
       break;
     }
     case 'forest': {
@@ -1758,6 +2264,18 @@ function buildTramTracks(L){
   }
 }
 
+/* A slim post-top lamp beside a path, alternating sides — walking and cycling
+   routes should read as clearly lit after dark. */
+function pathLight(L, o, x, z, doX, off){
+  if(((o.gx + o.gz) & 1) !== 0) return;                // one every other cell ≈ 18 m
+  const side = ((o.gx * 3 + o.gz) & 2) ? 1 : -1;
+  const px = doX ? x : x + side * off;
+  const pz = doX ? z + side * off : z;
+  box(L, 0.22, 4.4, 0.22, px, 2.2, pz, [0.34, 0.36, 0.38], 0);
+  box(L, 0.7, 0.24, 0.7, px, 4.5, pz, [0.44, 0.46, 0.48], 0);
+  lamps.push({x: px, z: pz});
+}
+
 function buildTransit(o, L){
   const x = wx(o.gx), z = wz(o.gz);
   const ax = cellAxis(o.gx, o.gz);
@@ -1786,12 +2304,14 @@ function buildTransit(o, L){
       if(doZ) slab(L, 4.4, CELL, x, 0.13, z, BIKE);
       if(doX) for(let i=0;i<3;i++) box(L, 1.5, 0.03, 0.22, x - CELL/2 + (i+0.5)*CELL/3, 0.16, z, [0.9,0.95,0.92], 0);
       if(doZ) for(let i=0;i<3;i++) box(L, 0.22, 0.03, 1.5, x, 0.16, z - CELL/2 + (i+0.5)*CELL/3, [0.9,0.95,0.92], 0);
+      pathLight(L, o, x, z, doX, 3.1);
       break;
     }
     case 'walk': {
       if(doX) slab(L, CELL, 6.0, x, 0.11, z, WALKC);
       if(doZ) slab(L, 6.0, CELL, x, 0.11, z, WALKC);
       if(rnd() < 0.5) addTree(x + rrange(-2,2), 0.08, z + rrange(-2,2), 0.8 + rnd()*0.3);
+      pathLight(L, o, x, z, doX, 3.9);
       break;
     }
     case 'subway': {
@@ -1868,7 +2388,11 @@ function buildStreets(L){
         else slab(L, CELL + 0.05, w, x, 0.05, z + Math.sin(gx * 1.7) * 1.1, WALKC);
         if((gx * 7 + gz) % 4 === 0)
           addTree(x + rrange(-3.6, 3.6), 0.03, z + rrange(-3.6, 3.6), 0.9 + rnd() * 0.6);
-        if((gx + gz) % 11 === 0) lamps.push({x, z});
+        if((gx + gz) % 3 === 0){                        // park paths stay lit after dark
+          const px = sx ? x + 2.6 : x, pz = sx ? z : z + 2.6;
+          box(L, 0.2, 4.2, 0.2, px, 2.1, pz, [0.34, 0.36, 0.38], 0);
+          lamps.push({x: px, z: pz});
+        }
       }
     }
   }
@@ -1881,7 +2405,26 @@ function buildStreets(L){
 const state = {
   mode: 'view', tool: null, speed: 1, hour: 7.2, simTime: 7.2, seed: 1, metro: false, size: 2,
   objects: [], lines: [], selected: -1, selLine: -1, population: 0, jobs: 0,
+  pplSize: 1.0, density: 1, focus: null, layout: 'standard',
 };
+/* A focus is {label, types:Set}. Streets and tram track always stay lit so the
+   highlighted things still sit in a readable city. */
+function focusHas(type){ return !state.focus || state.focus.types.has(type); }
+function setFocus(f){
+  const same = state.focus && f && state.focus.label === f.label;
+  state.focus = same ? null : f;
+  if(state.focus && state.metro){ state.metro = false; }
+  syncViewMaterials();
+  rebuildCity();
+  renderCounts();
+  if(state.focus) toast('Showing ' + state.focus.label + ' — click again to show everything');
+}
+function clearFocus(){ if(state.focus) setFocus(state.focus); }
+function typesWhere(fn){
+  const s = new Set();
+  for(const k in TYPES) if(!TYPES[k].legacy && fn(TYPES[k], k)) s.add(k);
+  return s;
+}
 let uidSeq = 1;
 /* properties chosen in the inspector stick around per type */
 const toolMem = {};
@@ -2094,7 +2637,13 @@ function buildTreeMeshes(){
     m.compose(p, q, s);
     trunkMesh.setMatrixAt(i, m);
     canopyMesh.setMatrixAt(i, m);
-    col.setRGB(s2l(t.c[0]), s2l(t.c[1]), s2l(t.c[2]));
+    let cr = s2l(t.c[0]), cg = s2l(t.c[1]), cb = s2l(t.c[2]);
+    if(state.focus && !t.f){                       // washed out with the rest of the city
+      const lum = cr * 0.299 + cg * 0.587 + cb * 0.114;
+      const grey = lum * 0.55 + 0.13;
+      cr = lerp(grey, cr, 0.18); cg = lerp(grey, cg, 0.18); cb = lerp(grey, cb, 0.18);
+    }
+    col.setRGB(cr, cg, cb);
     canopyMesh.setColorAt(i, col);
   }
   trunkMesh.instanceMatrix.needsUpdate = true;
@@ -2114,7 +2663,7 @@ const lampPostList = [];
 function buildLampMeshes(){
   if(lampMesh){ scene.remove(lampMesh); lampMesh.dispose(); }
   if(poolMesh){ scene.remove(poolMesh); poolMesh.dispose(); }
-  const n = Math.min(lamps.length, 4000);
+  const n = Math.min(lamps.length, 6500);
   if(!n){ lampMesh = poolMesh = null; return; }
   lampMesh = new THREE.InstancedMesh(lampBulbGeo, matBulb, n);
   poolMesh = new THREE.InstancedMesh(lampPoolGeo, matPool, n);
@@ -2212,26 +2761,17 @@ function buildMetro(){
   scene.add(metroMesh);
 }
 function setMetroView(on){
-  const changed = state.metro !== !!on;
   state.metro = !!on;
-  if(changed){                       // only touch materials on a real toggle: it recompiles shaders
-    const fade = (mat, o2) => {
-      if(!mat) return;
-      mat.transparent = state.metro;
-      mat.opacity = state.metro ? o2 : 1;
-      mat.depthWrite = !state.metro;
-      mat.needsUpdate = true;
-    };
-    fade(matCity, 0.11); fade(matDetail, 0.10); fade(matTrunk, 0.10);
-    fade(matCanopy, 0.10); fade(matShop, 0.14); fade(terrainMat, 0.42);
-  }
+  const hadFocus = state.metro && state.focus;
+  if(hadFocus) state.focus = null;          // the two views are mutually exclusive
+  syncViewMaterials();
+  if(hadFocus) queueRebuild();
   if(agentMesh) agentMesh.visible = !state.metro;
   if(tramMesh) tramMesh.visible = true;        // the trams belong to the transit view
   if(poolMesh) poolMesh.visible = !state.metro;
   if(signMesh) signMesh.visible = !state.metro;
   if(metroMesh) metroMesh.visible = state.metro || isLineTool();
-  const btn = $('btnMetro');
-  if(btn) btn.classList.toggle('on', state.metro);
+  renderCounts();
   document.querySelectorAll('.pitem').forEach(b => b.classList.toggle('dim', state.metro && !isTransitTool(b.dataset.t)));
   const lg = $('legend');
   if(lg) lg.classList.toggle('show', state.metro);
@@ -2326,13 +2866,26 @@ function buildPickMesh(){
   scene.add(pickMesh);
 }
 
-const COUNT_ROWS = [
-  ['apartments','Apartment block','Apartment blocks'], ['office','Office','Offices'],
-  ['hospital','Hospital','Hospitals'], ['school','School','Schools'],
-  ['library','Library','Libraries'], ['park','Park','Parks'],
-  ['sports','Sports field','Sports fields'], ['plaza','Plaza','Plazas'], ['lake','Lake','Lakes'],
-];
+/* Plural labels for the count chips. Anything not listed falls back to its
+   palette label with an "s". */
+const PLURALS = {
+  apartments:['Apartment block','Apartment blocks'], office:['Office','Offices'],
+  library:['Library','Libraries'], factory:['Factory','Factories'],
+  mall:['Shopping mall','Shopping malls'], shopping:['Shop','Shops'],
+  sports:['Sports field','Sports fields'], sportspark:['Sports park','Sports parks'],
+  prom:['Promenade','Promenades'], subway:['Metro stop','Metro stops'],
+  tramstop:['Tram stop','Tram stops'], bike:['Bike path','Bike paths'],
+  walk:['Walking path','Walking paths'], tram:['Tram track','Tram track'],
+  church:['Cathedral','Cathedrals'], cathedral:['Cathedral','Cathedrals'],
+};
 const pl = (n, a, b) => n === 1 ? a : b;
+function typeLabel(k, n){
+  const p = PLURALS[k];
+  if(p) return pl(n, p[0], p[1]);
+  const L = TYPES[k] ? TYPES[k].label : k;
+  return n === 1 ? L : L + 's';
+}
+let lastCounts = {};
 function computeStats(){
   let res = 0, jobs = 0;
   const n = {};
@@ -2343,16 +2896,49 @@ function computeStats(){
   state.population = res; state.jobs = jobs;
   $('pop').textContent = fmtN(res);
   $('jobs').textContent = fmtN(jobs);
-  let h = '';
-  for(const [k, one, many] of COUNT_ROWS)
-    if(n[k]) h += '<span><b>' + n[k] + '</b> <i>' + pl(n[k], one, many) + '</i></span>';
-  const landmarks = (n.mega || 0) + (n.spire || 0) + (n.arch || 0);
-  if(landmarks) h += '<span><b>' + landmarks + '</b> <i>' + pl(landmarks, 'Landmark', 'Landmarks') + '</i></span>';
+  lastCounts = n;
+  renderCounts();
+}
+/* The HUD counts double as the view filter: click one and the rest of the city
+   fades back so that type — or that whole category — stands out. */
+function renderCounts(){
+  const n = lastCounts, F = state.focus;
+  const on = lbl => (F && F.label === lbl) || (state.metro && lbl === 'Transit') ? ' on' : '';
+  const statOn = (id, yes) => { const e = $(id); if(e) e.classList.toggle('on', !!yes); };
+  statOn('statPop', F && F.label === 'Residents');
+  statOn('statJobs', F && F.label === 'Jobs');
+  let h = '<div class="cats">';
+  for(const cat of CATS){
+    let any = 0;
+    for(const k in n) if(TYPES[k] && TYPES[k].cat === cat) any += n[k];
+    if(!any) continue;
+    h += '<button class="cchip' + on(cat) + '" data-cat="' + cat + '">' + cat + '</button>';
+  }
+  h += '</div>';
   const km = v => (v * CELL / 1000).toFixed(1) + ' km';
-  if(n.tram) h += '<span><b>' + km(n.tram) + '</b> <i>Tram</i></span>';
-  if(n.bike) h += '<span><b>' + km(n.bike) + '</b> <i>Bike</i></span>';
-  if(n.subway) h += '<span><b>' + n.subway + '</b> <i>' + pl(n.subway, 'Metro stop', 'Metro stops') + '</i></span>';
+  const chip = (k, big, lbl) =>
+    '<button class="ccount' + on(lbl) + '" data-type="' + k + '" data-label="' + lbl + '">' +
+    '<b>' + big + '</b> <i>' + lbl + '</i></button>';
+  for(const cat of CATS){
+    for(const k in TYPES){
+      const T = TYPES[k];
+      if(T.cat !== cat || T.legacy || !n[k]) continue;
+      if(k === 'tram' || k === 'bike' || k === 'walk')
+        h += chip(k, km(n[k]), typeLabel(k, 2));
+      else h += chip(k, n[k], typeLabel(k, n[k]));
+    }
+  }
   $('counts').innerHTML = h;
+  $('counts').querySelectorAll('.cchip').forEach(b => b.addEventListener('click', () => {
+    const cat = b.dataset.cat;
+    if(cat === 'Transit'){ setMetroView(!state.metro); return; }
+    setFocus({label: cat, types: typesWhere(T => T.cat === cat)});
+  }));
+  $('counts').querySelectorAll('.ccount').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.type;
+    if(TYPES[k] && TYPES[k].kind === 'transit'){ setMetroView(true); return; }
+    setFocus({label: b.dataset.label, types: new Set([k])});
+  }));
 }
 
 let rebuildQueued = false;
@@ -2390,10 +2976,12 @@ function rebuildCity(){
   };
   buildGraph();
   rng = mulberry32(state.seed * 7919 + 13);
+  curFocus = 1;                       // streets and track stay lit under a focus
   buildStreets(LD);
   buildTramTracks(LD);
   for(let i = 0; i < state.objects.length; i++){
     const o = state.objects[i], T = TYPES[o.type];
+    curFocus = focusHas(o.type) ? 1 : 0;
     rng = mulberry32(o.seed * 100003 + 17);
     const sf = (o.seed % 997) / 997;
     const m = mark();
@@ -2406,9 +2994,13 @@ function rebuildCity(){
     else if(o.type === 'spire') buildSpire(o, LC, sf);
     else if(o.type === 'mega') buildMega(o, LC, sf);
     else if(o.type === 'arch') buildArch(o, LC, sf);
+    else if(o.type === 'cathedral') buildCathedral(o, LC, sf);
+    else if(o.type === 'statue') buildStatue(o, LD, sf);
+    else if(o.type === 'fountain') buildFountain(o, LD, sf);
     if(o._lift) lift(m, o._lift);
     emitSigns(SG, o);
   }
+  curFocus = 1;
   if(signMesh){ scene.remove(signMesh); signMesh.geometry.dispose(); signMesh = null; }
   const sg = signGeometry(SG);
   if(sg){
@@ -2529,10 +3121,26 @@ const G = {
   stations: [],
 };
 const MODES = ['walk', 'bike', 'transit'];
-const MODE_SPEED = {walk:{walk:1, bike:1, tram:1, subway:0.02},
-                    bike:{walk:1, bike:2.4, tram:1, subway:0.02},
-                    transit:{walk:1, bike:1.6, tram:4.2, subway:9}};
-const SEG_VIS_SPEED = {walk:1.0, bike:2.0, tram:3.6, subway:7.0};
+/* Corridor kinds a lattice edge can have, best-first:
+   tram (green track), path (walking route), bike (cycle lane), park (street
+   through parkland), walk (plain street).
+   These numbers are routing *preferences*, not real speeds — cost is length
+   divided by the number, so a higher number makes a corridor more attractive.
+   Walkers and cyclists actively avoid tram track: it's a rail bed, not a footway. */
+const MODE_SPEED = {walk:   {walk:1, park:1.60, path:1.85, bike:1.45, tram:0.45, subway:0.02},
+                    bike:   {walk:1, park:1.35, path:1.30, bike:2.60, tram:0.50, subway:0.02},
+                    transit:{walk:1, park:1.00, path:1.05, bike:1.60, tram:4.20, subway:9},
+                    /* laying track: shortest street route, no preferences */
+                    rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, subway:0.02}};
+const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, subway:7.0};
+/* How fast an agent *looks* like it's moving: a pedestrian crossing a tram
+   corridor still walks — only a transit rider gets the tram's speed. */
+function visSpeed(mode, kind){
+  if(kind === 'subway') return SEG_VIS_SPEED.subway;
+  if(mode === 'transit' && kind === 'tram') return SEG_VIS_SPEED.tram;
+  if(mode === 'bike') return SEG_VIS_SPEED.bike;
+  return SEG_VIS_SPEED.walk;
+}
 
 function nodeIdx(ix, iz){ return ix * NX + iz; }
 function nearestNode(x, z){
@@ -2548,6 +3156,28 @@ function nearestNode(x, z){
     if(d < bd){ bd = d; best = n; }
   }
   return best;
+}
+
+/* Does this street cell run through parkland? Mirrors how buildStreets decides
+   whether to lay pavement or a soft footpath, so routing agrees with what I see. */
+function greenSurround(gx, gz){
+  for(let dx = -2; dx <= 2; dx++) for(let dz = -2; dz <= 2; dz++){
+    const ax = gx + dx, az = gz + dz;
+    if(ax < 0 || az < 0 || ax >= GRID || az >= GRID) continue;
+    const i = occ[oi(ax, az)];
+    if(i === -1) continue;
+    const ob = state.objects[i];
+    if(!ob) continue;
+    const k = TYPES[ob.type].kind;
+    if(k !== 'green' && k !== 'transit') return false;   // a building nearby wins
+  }
+  for(let dx = -2; dx <= 2; dx++) for(let dz = -2; dz <= 2; dz++){
+    const ax = gx + dx, az = gz + dz;
+    if(ax < 0 || az < 0 || ax >= GRID || az >= GRID) continue;
+    const i = occ[oi(ax, az)];
+    if(i !== -1 && state.objects[i] && TYPES[state.objects[i].type].kind === 'green') return true;
+  }
+  return false;
 }
 
 function buildGraph(){
@@ -2582,8 +3212,9 @@ function buildGraph(){
   }
   const link = (a, b, cells) => {
     if(!G.ok[a] || !G.ok[b]) return;
-    let tram = 0, bike = 0, walk = 0;
+    let tram = 0, bike = 0, walk = 0, park = 0;
     for(const c of cells){
+      if(greenSurround(c[0], c[1])) park++;
       const s = netAt.get(c[0] + ',' + c[1]);
       if(!s) continue;
       if(s.has('tram')) tram++;
@@ -2592,7 +3223,11 @@ function buildGraph(){
     }
     const len = Math.hypot(G.x[a] - G.x[b], G.z[a] - G.z[b]);
     const frac = cells.length || 1;
-    const kind = tram / frac >= 0.55 ? 'tram' : bike / frac >= 0.5 ? 'bike' : 'walk';
+    const kind = tram / frac >= 0.55 ? 'tram'
+               : walk / frac >= 0.5 && walk >= bike ? 'path'
+               : bike / frac >= 0.5 ? 'bike'
+               : park / frac >= 0.5 ? 'park'
+               : 'walk';
     const e1 = {to:b, len, kind}, e2 = {to:a, len, kind};
     G.adj[a].push(e1); G.adj[b].push(e2);
   };
@@ -2629,7 +3264,7 @@ function buildGraph(){
         prevStop = {st, n};
         continue;
       }
-      const seg = routeNodes('walk', prevStop.n, n) || [prevStop.n, n];
+      const seg = routeNodes('rail', prevStop.n, n) || [prevStop.n, n];
       for(let k = 0; k < seg.length; k++){
         const q = seg[k];
         way.push({gx: nodeGX(Math.floor(q / NX)), gz: nodeGX(q % NX), stop:false});
@@ -2726,7 +3361,7 @@ function hpop(){
   }
   return top;
 }
-const MAX_SPEED = {walk:1, bike:2.4, transit:9};
+const MAX_SPEED = {walk:1.9, bike:2.6, transit:9, rail:1};
 function aStar(mode, from, to){
   const sp = MODE_SPEED[mode], ms = MAX_SPEED[mode];
   const h = n => Math.hypot(G.x[n] - G.x[to], G.z[n] - G.z[to]) / ms;
@@ -2769,9 +3404,18 @@ function routeNodes(mode, from, to){
   PATHS.set(key, p);
   return p;
 }
-function edgeKind(a, b){
-  for(const e of G.adj[a]) if(e.to === b) return e.kind;
-  return 'walk';
+/* A node pair can carry several parallel edges — a street, a bike lane, and a
+   tram line laid over the top. Report the one this traveller would actually
+   have taken, otherwise tram passengers get drawn trudging along the track. */
+function edgeKind(mode, a, b){
+  const sp = MODE_SPEED[mode] || MODE_SPEED.walk;
+  let best = 'walk', bc = Infinity;
+  for(const e of G.adj[a]){
+    if(e.to !== b) continue;
+    const c = e.len / (sp[e.kind] || 1);
+    if(c < bc){ bc = c; best = e.kind; }
+  }
+  return best;
 }
 
 /* ============================================================================
@@ -2784,7 +3428,10 @@ const agentGeo = mergeGeometries([
   new THREE.BoxGeometry(0.46, 0.62, 0.34).translate(0, 0.33, 0),
 ], false);
 const matAgent = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85, flatShading:true});
-const AGENT_SCALE = 2.0;
+/* Figures read better a little under life-size at city zoom: 1.0× on the slider
+   draws the mesh at PPL_BASE, and the slider scales up or down from there. */
+const PPL_BASE = 0.4;
+const agentScale = () => state.pplSize * PPL_BASE;
 
 const CLOTHES = [0xef6f5a, 0x4fa3d1, 0xf0c04a, 0x7ec06a, 0xe07fb0, 0x8a7ee0, 0xf59f4a,
                  0x50c6b0, 0xe8e0d0, 0x6d7f96, 0xd4553f, 0x3f8f77];
@@ -2795,7 +3442,7 @@ let homes = [], works = [], leisures = [], fields = [];
 let outsideCount = 0;
 
 function anchorsFor(o){
-  if(o.type === 'sports'){ o._cap = 5 + (o.seed % 6); o._vis = 0; }
+  if(isSportSite(o)){ o._cap = (o.type === 'sportspark' ? 14 : 5) + (o.seed % 6); o._vis = 0; }
   const c = objCentre(o);
   const n = nearestNode(c.x, c.z);
   o._cx = c.x; o._cz = c.z; o._w = c.w * CELL; o._d = c.d * CELL;
@@ -2842,11 +3489,13 @@ function initAgent(a, pickHome, pickWork){
   a.lunchLen = 0.7 + rnd() * 0.7;
   a.lunch = rnd() < 0.62;
   a.tHome = 16.7 + rnd() * 2.1;
-  a.eve = rnd() < 0.55;
-  a.tEve = a.tHome + 0.5 + rnd() * 1.6;
-  a.tEveEnd = 20.6 + rnd() * 2.4;
+  // evenings out are the exception, and nearly everyone is indoors by 22:00 —
+  // bar a handful of night owls, so the streets aren't completely dead
+  a.eve = rnd() < 0.20;
+  a.tEve = a.tHome + 0.4 + rnd() * 1.4;
+  a.tEveEnd = rnd() < 0.07 ? 22.2 + rnd() * 1.3 : 19.2 + rnd() * 1.6;
   a.morningOut = rnd() < 0.5;
-  a.sportAt = a.noJob ? 9.5 + rnd() * 6.5 : 17.2 + rnd() * 3.0;
+  a.sportAt = a.noJob ? 9.5 + rnd() * 6.0 : 17.0 + rnd() * 2.2;
   a.off = (rnd() - 0.5) * 4.6;
   a.spd = 0.82 + rnd() * 0.42;
   a.state = 'in';
@@ -2866,13 +3515,14 @@ function refreshAgents(){
   works = state.objects.filter(o => capacityOf(o).jobs > 0 && o._node >= 0);
   leisures = state.objects.filter(o => {
     const T = TYPES[o.type];
-    return (T.kind === 'green' || T.kind === 'landmark' || T.leisure) && o.type !== 'sports' && o._node >= 0;
+    return (T.kind === 'green' || T.kind === 'landmark' || T.leisure) && !isSportSite(o) && o._node >= 0;
   });
-  fields = state.objects.filter(o => o.type === 'sports' && o._node >= 0);
+  fields = state.objects.filter(o => isSportSite(o) && o._node >= 0);
   const alive = new Set(state.objects);
 
+  const dk = (DENSITY[clamp(state.density | 0, 0, DENSITY.length - 1)] || DENSITY[1]).k;
   const want = state.population > 0 && homes.length
-    ? clamp(Math.round(state.population / 62), 24, MAX_AGENTS) : 0;
+    ? clamp(Math.round(state.population / 62 * dk), 12, MAX_AGENTS) : 0;
 
   const pickHome = weightedPicker(homes, homes.map(o => capacityOf(o).res));
   const pickWork = weightedPicker(works, works.map(o => capacityOf(o).jobs));
@@ -2964,7 +3614,7 @@ function startTrip(a, dest, purpose){
     for(let i = 0; i < nodes.length; i++){
       const n = nodes[i];
       px.push(G.x[n]); pz.push(G.z[n]);
-      pk.push(i === 0 ? 'walk' : edgeKind(nodes[i-1], n));
+      pk.push(i === 0 ? 'walk' : edgeKind(mode, nodes[i-1], n));
     }
   }
   px.push(dest._ex); pz.push(dest._ez);
@@ -2976,12 +3626,24 @@ function startTrip(a, dest, purpose){
   a.mode = mode;
 }
 
-const AGENT_BASE = 8.4;
+const AGENT_BASE = 0.73;             // metres per second at 1x — an unhurried stroll
+/* Where across the corridor a figure walks. The tram bed is 8.2 m of the 9 m
+   street, so anyone on foot hugs the very edge rather than strolling the rails;
+   cyclists keep to the middle of their own lane. */
+function laneOffset(a, kind){
+  const s = a.off < 0 ? -1 : 1;
+  if(kind === 'tram') return a.mode === 'transit'
+    ? s * TRAM_LAT                                   // riding: sit on the rail
+    : s * (3.75 + Math.abs(a.off) * 0.22);           // on foot: keep to the kerb
+  if(kind === 'bike') return a.mode === 'bike' ? a.off * 0.34 : s * (2.9 + Math.abs(a.off) * 0.28);
+  return a.off * 0.6;
+}
 function updateAgents(dt, hour, boost){
   outsideCount = 0;
   const simNow = state.simTime, dayNow = Math.floor(simNow / 24);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pv = new THREE.Vector3(), sv = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
+  const ascale = agentScale();
   const n = agents.length;
   for(let i = 0; i < n; i++){
     const a = agents[i];
@@ -3012,7 +3674,7 @@ function updateAgents(dt, hour, boost){
         const x1 = a.px[a.seg + 1], z1 = a.pz[a.seg + 1];
         const len = Math.hypot(x1 - x0, z1 - z0) || 0.001;
         const kind = a.pk[a.seg] || 'walk';
-        const sp = SEG_VIS_SPEED[kind];
+        const sp = visSpeed(a.mode, kind);
         const step = move * sp / len;
         a.t += step;
         if(a.t >= 1){ move = (a.t - 1) * len / sp; a.t = 0; a.seg++; }
@@ -3033,8 +3695,9 @@ function updateAgents(dt, hour, boost){
         const kind = a.pk[a.seg] || 'walk';
         a.hidden = (kind === 'subway');
         a.hx = dx / L; a.hz = dz / L;
-        a.x = x0 + dx * a.t - a.hz * a.off * 0.6;
-        a.z = z0 + dz * a.t + a.hx * a.off * 0.6;
+        const lat = laneOffset(a, kind);
+        a.x = x0 + dx * a.t - a.hz * lat;
+        a.z = z0 + dz * a.t + a.hx * lat;
       }
     } else if(a.state === 'mill'){
       a.hidden = false;
@@ -3065,7 +3728,7 @@ function updateAgents(dt, hour, boost){
       const bob = a.state === 'go' ? Math.sin((perfNow * 0.009 + i) * 1.6) * 0.06 : 0;
       pv.set(a.x, terrainGuessY(a.x, a.z) + bob, a.z);
       q.setFromAxisAngle(up, Math.atan2(a.hx, a.hz));
-      sv.set(AGENT_SCALE, AGENT_SCALE, AGENT_SCALE);
+      sv.set(ascale, ascale, ascale);
       m.compose(pv, q, sv);
     }
     if(agentMesh) agentMesh.setMatrixAt(i, m);
@@ -3086,7 +3749,19 @@ const tramGeo = mergeGeometries([
 ], false);
 const matTram = new THREE.MeshStandardMaterial({color:0xe8e2d6, roughness:0.6, metalness:0.15,
   emissive:0xffcf94, emissiveIntensity:0.0});
-let tramMesh = null;
+/* Headlamps: a pair of lenses at each end, always on, and a soft beam on the
+   ground ahead of whichever end is leading. */
+const tramLampGeo = mergeGeometries([
+  new THREE.BoxGeometry(0.5, 0.7, 1.0).translate(10.6, 2.3, -0.85),
+  new THREE.BoxGeometry(0.5, 0.7, 1.0).translate(10.6, 2.3,  0.85),
+  new THREE.BoxGeometry(0.5, 0.5, 0.8).translate(-10.6, 2.3, -0.85),
+  new THREE.BoxGeometry(0.5, 0.5, 0.8).translate(-10.6, 2.3,  0.85),
+], false);
+const matTramLamp = new THREE.MeshBasicMaterial({color:0xfff0cc});
+const tramBeamGeo = new THREE.PlaneGeometry(15, 5.2).rotateX(-Math.PI / 2).translate(18, 0.06, 0);
+const matTramBeam = new THREE.MeshBasicMaterial({color:0xffe0a8, transparent:true, opacity:0.0,
+  depthWrite:false, blending:THREE.AdditiveBlending});
+let tramMesh = null, tramLampMesh = null, tramBeamMesh = null;
 const trams = [];
 
 function buildTramVehicles(){
@@ -3152,16 +3827,23 @@ function buildTramVehicles(){
   makeTramMesh();
 }
 function makeTramMesh(){
-  if(tramMesh){ scene.remove(tramMesh); tramMesh.dispose(); tramMesh = null; }
+  for(const m of [tramMesh, tramLampMesh, tramBeamMesh]) if(m){ scene.remove(m); m.dispose(); }
+  tramMesh = tramLampMesh = tramBeamMesh = null;
   if(!trams.length) return;
   tramMesh = new THREE.InstancedMesh(tramGeo, matTram, trams.length);
-  tramMesh.frustumCulled = false;
   tramMesh.castShadow = true;
-  tramMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  scene.add(tramMesh);
+  tramLampMesh = new THREE.InstancedMesh(tramLampGeo, matTramLamp, trams.length);
+  tramBeamMesh = new THREE.InstancedMesh(tramBeamGeo, matTramBeam, trams.length);
+  tramBeamMesh.renderOrder = 2;
+  for(const m of [tramMesh, tramLampMesh, tramBeamMesh]){
+    m.frustumCulled = false;
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(m);
+  }
 }
-function updateTrams(dt, boost){
+function updateTrams(dt, rawBoost){
   if(!tramMesh) return;
+  const boost = Math.min(rawBoost, 3);                 // trams top out ~35 m/s on screen
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1,1,1);
   const up = new THREE.Vector3(0,1,0);
   for(let i = 0; i < trams.length; i++){
@@ -3176,7 +3858,7 @@ function updateTrams(dt, boost){
       const a0 = pts[sIdx], b0 = pts[sIdx + 1];
       const segLen = Math.hypot(b0.x - a0.x, b0.z - a0.z) || 1;
       const oldT = tr.t;
-      tr.t += tr.dir * (32 * boost * dt) / segLen;
+      tr.t += tr.dir * (11.5 * boost * dt) / segLen;   // ~41 km/h at real time
       if(tr.dir > 0){
         const k = Math.ceil(oldT + 1e-4);
         if(k <= segCount && tr.t >= k && pts[k] && pts[k].stop){ tr.t = k; tr.wait = 1.8 + Math.random() * 1.4; }
@@ -3201,8 +3883,16 @@ function updateTrams(dt, boost){
     q.setFromAxisAngle(up, ang + Math.PI / 2);
     m.compose(p, q, s);
     tramMesh.setMatrixAt(i, m);
+    if(tramLampMesh) tramLampMesh.setMatrixAt(i, m);
+    if(tramBeamMesh){
+      q.setFromAxisAngle(up, ang + Math.PI / 2 + (tr.dir < 0 ? Math.PI : 0));
+      m.compose(p, q, s);
+      tramBeamMesh.setMatrixAt(i, m);
+    }
   }
   tramMesh.instanceMatrix.needsUpdate = true;
+  if(tramLampMesh) tramLampMesh.instanceMatrix.needsUpdate = true;
+  if(tramBeamMesh) tramBeamMesh.instanceMatrix.needsUpdate = true;
 }
 
 /* ============================================================================
@@ -3339,7 +4029,7 @@ function describe(o){
   if(o.stories || T.stories) bits.push(storiesOf(o) + ' storeys');
   bits.push((f.w * CELL) + '×' + (f.d * CELL) + ' m');
   if(hasStyle(o.type)) bits.push(STYLES[clamp(o.style | 0, 0, 4)]);
-  if(o.type === 'sports' || o.type === 'stadium') bits.push(SPORTS[clamp(o.sport | 0, 0, 2)]);
+  if(o.type === 'sports' || o.type === 'stadium') bits.push(SPORTS[clamp(o.sport | 0, 0, SPORTS.length - 1)]);
   if(o.lvl) bits.push('on a roof');
   if(o.type === 'subway'){
     const on = lineOfStation(o.uid);
@@ -3572,7 +4262,10 @@ addEventListener('keydown', e => {
   keys.add(k);
   if(k === 'escape' && $('modal').classList.contains('show')){ closeNewDialog(); return; }
   if((k === 'enter' || k === 'escape') && drawLine >= 0){ finishLine(); if(k === 'enter') return; }
-  if(k === 'escape'){ setTool(null); state.selected = -1; updateSelectionBox(); buildInspector(true); ghost.visible = false; }
+  if(k === 'escape'){
+    if(state.focus){ clearFocus(); return; }
+    setTool(null); state.selected = -1; updateSelectionBox(); buildInspector(true); ghost.visible = false;
+  }
   if(k === 'f'){ resetCamera(); }
   if(k === 'm'){ setMetroView(!state.metro); }
   if(k === 'r'){
@@ -3727,7 +4420,8 @@ function buildPalette(){
   html += '<div class="phint"><kbd>click</kbd> place (replaces what is there) · <kbd>R</kbd> rotate · ' +
           '<kbd>drag</kbd> move · <kbd>Del</kbd> remove · <kbd>Esc</kbd> cancel<br>' +
           '<kbd>left-drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>WASD</kbd> move · <kbd>F</kbd> reset<br>' +
-          '<kbd>M</kbd> metro map · malls carry towers · forests carry paths<br>' +
+          'Click a count in the top-left to spotlight just that kind of thing<br>' +
+          '<kbd>M</kbd> transit map · malls carry towers · forests carry paths<br>' +
           'Lines: place stops, then click stop to stop to link them (<kbd>Enter</kbd> finishes)<br><br>' +
           '<button class="btn" id="btnClear" style="width:100%">Clear the city</button></div>';
   el.innerHTML = html;
@@ -3741,6 +4435,7 @@ function buildPalette(){
 }
 let metroAuto = false;
 function setTool(t){
+  if(t && state.focus) clearFocus();          // don't build into a faded-out city
   if(drawLine >= 0 && t !== LINE_TOOL) finishLine();
   if(t && !isTransitTool(t) && state.metro){ metroAuto = false; setMetroView(false); }
   state.tool = t;
@@ -3916,7 +4611,7 @@ function buildInspector(force){
     h += rangeRow('iw', 'Base width', w, T.minW, T.maxW, ' cells');
     h += rangeRow('idp', 'Base depth', d, T.minD || T.minW, T.maxD || T.maxW, ' cells');
   }
-  if(T.kind === 'building' || T.kind === 'landmark'){
+  if((T.kind === 'building' || T.kind === 'landmark') && !T.noTint){
     h += '<div class="irow"><label>Colour</label><div class="sws">';
     FACADES.forEach((f, i) => {
       h += '<button class="sw2' + ((o.tint | 0) === i ? ' on' : '') + '" data-tint="' + i +
@@ -4013,10 +4708,27 @@ function setSpeed(s){
   state.speed = s;
   document.querySelectorAll('#speedseg button').forEach(b => b.classList.toggle('on', +b.dataset.sp === s));
 }
+function setDensity(i){
+  state.density = clamp(i | 0, 0, DENSITY.length - 1);
+  document.querySelectorAll('#densityseg button').forEach(b => b.classList.toggle('on', +b.dataset.dn === state.density));
+  refreshAgents();
+  toast(DENSITY[state.density].n + ' crowds — ' + fmtN(agents.length) + ' figures');
+}
+function setPeopleSize(v){
+  state.pplSize = clamp(v, 0.4, 2.4);
+  const sl = $('pplsize'), lab = $('pplsizev');
+  if(sl && +sl.value !== Math.round(state.pplSize * 100)) sl.value = String(Math.round(state.pplSize * 100));
+  if(lab) lab.textContent = state.pplSize.toFixed(1) + '×';
+}
 document.querySelectorAll('#modeseg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 document.querySelectorAll('#speedseg button').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.sp)));
+document.querySelectorAll('#densityseg button').forEach(b => b.addEventListener('click', () => setDensity(+b.dataset.dn)));
+$('pplsize').addEventListener('input', e => setPeopleSize(+e.target.value / 100));
 $('btnReset').addEventListener('click', () => resetCamera());
-$('btnMetro').addEventListener('click', () => setMetroView(!state.metro));
+$('statPop').addEventListener('click', () =>
+  setFocus({label:'Residents', types: typesWhere(T => (T.res || 0) > 0)}));
+$('statJobs').addEventListener('click', () =>
+  setFocus({label:'Jobs', types: typesWhere(T => (T.job || 0) > 0)}));
 
 let sliderActive = false;
 const slider = $('timeslider');
@@ -4035,6 +4747,7 @@ const LS_KEY = 'stevescity.v2';
 function serialise(){
   return {
     v: 2, seed: state.seed, hour: state.hour, grid: GRID,
+    ppl: {size: state.pplSize, den: state.density}, layout: state.layout,
     camera: {t:[cam.target.x, cam.target.y, cam.target.z], d:cam.dist, a:cam.az, e:cam.el},
     lines: state.lines.map(L => ({m:modeOf(L), c:L.c | 0, s:L.stops.slice()})),
     objects: state.objects.map(o => ({t:o.type, x:o.gx, z:o.gz, r:o.rot, s:o.seed, u:o.uid,
@@ -4048,6 +4761,13 @@ function applyCity(d){
   state.seed = d.seed || 1;
   state.hour = typeof d.hour === 'number' ? d.hour : 7.2;
   state.simTime = state.hour;
+  state.layout = layoutOf(d.layout).k;
+  if(d.ppl){
+    setPeopleSize(typeof d.ppl.size === 'number' ? d.ppl.size : 1.0);
+    state.density = clamp(d.ppl.den | 0, 0, DENSITY.length - 1);
+    document.querySelectorAll('#densityseg button')
+      .forEach(b => b.classList.toggle('on', +b.dataset.dn === state.density));
+  }
   state.objects = d.objects.map(o => {
     const L = LEGACY[o.t];
     const type = L ? L.type : o.t;
@@ -4108,7 +4828,7 @@ $('fileIn').addEventListener('change', e => {
   r.readAsText(f);
   e.target.value = '';
 });
-const newOpts = {map:1, size:2};
+const newOpts = {map:1, size:2, lay:1};
 const estPop = i => {
   const S = CITY_SIZES[i];
   const fw = (S.fw[0] + S.fw[1]) / 2, fh = (S.fh[0] + S.fh[1]) / 2;
@@ -4123,13 +4843,20 @@ function renderNewDialog(){
   $('dpop').innerHTML = CITY_SIZES.map((c, i) =>
     '<button class="opt' + (i === newOpts.size ? ' on' : '') + '" data-v="' + i + '">' + c.n + '</button>').join('');
   const g = MAP_SIZES[newOpts.map].g;
+  $('dlay').innerHTML = LAYOUTS.map((l, i) =>
+    '<button class="opt' + (i === newOpts.lay ? ' on' : '') + '" data-v="' + i + '">' + l.n + '</button>').join('');
   $('dmapv').textContent = (g * CELL / 1000).toFixed(1) + ' km × ' + (g * CELL / 1000).toFixed(1) + ' km';
   const trimmed = CITY_SIZES[newOpts.size].fw[1] > nb;
   $('dpopv').textContent = 'about ' + fmtN(estPop(newOpts.size)) + ' residents' + (trimmed ? ' · trimmed to fit' : '');
+  const lay = LAYOUTS[newOpts.lay];
+  const zones = lay.k === 'random' ? '' :
+    ' · ' + Math.max(1, Math.ceil(estPop(newOpts.size) / SPORT_ZONE_PER)) + ' sports complex' +
+    (Math.max(1, Math.ceil(estPop(newOpts.size) / SPORT_ZONE_PER)) === 1 ? '' : 'es');
+  $('dlayv').textContent = lay.d + zones;
   const wire = (id, key) => $(id).querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
     newOpts[key] = +b.dataset.v; renderNewDialog();
   }));
-  wire('dmap', 'map'); wire('dpop', 'size');
+  wire('dmap', 'map'); wire('dpop', 'size'); wire('dlay', 'lay');
 }
 function openNewDialog(){ renderNewDialog(); $('modal').classList.add('show'); }
 function closeNewDialog(){ $('modal').classList.remove('show'); }
@@ -4139,8 +4866,9 @@ $('modal').addEventListener('pointerdown', e => { if(e.target === $('modal')) cl
 $('dgo').addEventListener('click', () => {
   closeNewDialog();
   resizeWorld(MAP_SIZES[newOpts.map].g);
-  generateCity((Math.random() * 1e9) | 0, newOpts.size);
-  toast('A new ' + CITY_SIZES[newOpts.size].n.toLowerCase() + ' rises');
+  generateCity((Math.random() * 1e9) | 0, newOpts.size, LAYOUTS[newOpts.lay].k);
+  toast('A new ' + LAYOUTS[newOpts.lay].n.toLowerCase() + ' ' +
+        CITY_SIZES[newOpts.size].n.toLowerCase() + ' rises');
 });
 $('dblank').addEventListener('click', () => {
   closeNewDialog();
@@ -4198,6 +4926,36 @@ function fillBlock(bx, bz, recipe){
   return placed;
 }
 function maybe(p, a, b){ return rnd() < p ? a : b; }
+/* A block of ground given over to sport: as many full-size sports parks as
+   will fit side by side, with pitches and a gathering plaza in the gaps.
+   Big enough to run a weekend tournament on. */
+function fillSportZone(bx, bz, wB, hB){
+  const gx0 = bx * PITCH, gz0 = bz * PITCH;
+  const gx1 = gx0 + wB * PITCH - 1, gz1 = gz0 + hB * PITCH - 1;
+  let made = 0;
+  for(let gz = gz0; gz < gz1 - 5; ){
+    let rowH = 0;
+    for(let gx = gx0; gx < gx1 - 5; ){
+      const w = 7 + Math.floor(rnd() * 4), d = 6 + Math.floor(rnd() * 4);
+      const spec = {type:'sportspark', w, d, sport:0};
+      if(gx + w <= gx1 && gz + d <= gz1 && canPlace(spec, gx, gz, 0, -1)){
+        addObject(spec, gx, gz, 0);
+        made++; rowH = Math.max(rowH, d); gx += w + 1;
+      } else gx++;
+    }
+    gz += (rowH || 6) + 1;
+  }
+  // squeeze pitches and a meeting plaza into whatever is left over
+  for(let att = 0; att < 60; att++){
+    const gx = gx0 + Math.floor(rnd() * (wB * PITCH - 4));
+    const gz = gz0 + Math.floor(rnd() * (hB * PITCH - 4));
+    const spec = rnd() < 0.72
+      ? {type:'sports', w:4 + Math.floor(rnd()*2), d:3 + Math.floor(rnd()*2), sport:Math.floor(rnd()*4)}
+      : {type:'plaza', w:2, d:2};
+    if(canPlace(spec, gx, gz, 0, -1)){ addObject(spec, gx, gz, 0); made++; }
+  }
+  return made;
+}
 function placeLine(type, fixed, axis, from, to){
   let n = 0;
   for(let g = Math.max(1, from); g <= Math.min(GRID - 2, to); g++){
@@ -4249,6 +5007,8 @@ function plazaS(){ const o = pick([[2,2],[2,2],[3,3],[3,2]]);
   return {type:'plaza', w:o[0], d:o[1]}; }
 function sportsS(){ const o = pick([[4,3],[5,3],[5,4],[4,4]]);
   return {type:'sports', w:o[0], d:o[1]}; }
+function shopS(){ const o = pick([[3,3,3],[4,3,3],[5,2,2],[6,3,3],[4,4,3],[8,3,3]]);
+  return {type:'shopping', stories:o[0], w:o[1], d:o[2], tint: pick([1,2,3,0])}; }
 
 function recipeBiz(){
   const r = [offices(rnd() < 0.55 ? 'tall' : 'low')];
@@ -4258,22 +5018,44 @@ function recipeBiz(){
 }
 function recipeBizGreen(){ return maybe(0.5, [parkS(), plazaS()], [sportsS(), plazaS()]); }
 function recipeMixed(){
-  const r = [pick([offices('low'), apts(hoodTier()), apts(hoodTier()), hospitalS(), hospitalS(), schoolS()])];
-  r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), plazaS(), libraryS()]));
-  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), apts(hoodTier(1))]));
+  const r = [pick([offices('low'), apts(hoodTier()), apts(hoodTier()), hospitalS(), hospitalS(), schoolS(), shopS()])];
+  r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), plazaS(), libraryS(), shopS()]));
+  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), apts(hoodTier(1)), shopS()]));
   return r;
 }
 /* Neighbourhoods: homes and the things that serve them. No office towers. */
 function recipeHood(){
   const r = [pick([apts(hoodTier()), apts(hoodTier()), apts(hoodTier()), apts(hoodTier()),
-                   apts(hoodTier()), schoolS(), libraryS(), parkS()])];
-  r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), apts(hoodTier(1))]));
-  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), plazaS(), libraryS()]));
-  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), schoolS()]));
+                   apts(hoodTier()), schoolS(), libraryS(), parkS(), shopS()])];
+  r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), apts(hoodTier(1)), shopS()]));
+  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), plazaS(), libraryS(), shopS()]));
+  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), schoolS(), shopS()]));
   return r;
 }
 function recipeGreen(){
   return rnd() < 0.45 ? [sportsS(), plazaS()] : [parkS(), maybe(0.5, plazaS(), parkS())];
+}
+/* --- Organized layout: work and home kept firmly apart ------------------- */
+/* The office district — towers, a little retail, a little green, nothing to
+   live in. Factories cluster at its outer edge (see the industrial band). */
+function recipeBizOrg(){
+  const r = [offices(rnd() < 0.72 ? 'tall' : 'low')];
+  const second = rnd();
+  r.push(second < 0.42 ? offices('low')
+       : second < 0.62 ? shopS()
+       : second < 0.82 ? plazaS()
+       : parkS());
+  if(rnd() < 0.40) r.push(rnd() < 0.5 ? plazaS() : parkS());
+  return r;
+}
+/* The residential side — homes and everything that serves them. */
+function recipeHoodOrg(){
+  const r = [pick([apts(hoodTier()), apts(hoodTier()), apts(hoodTier()), apts(hoodTier()),
+                   apts(hoodTier()), apts(hoodTier()), schoolS(), libraryS(), parkS()])];
+  r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), shopS(), schoolS()]));
+  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), parkS(), plazaS(), libraryS(), shopS(), sportsS()]));
+  if(rnd() < 0.55) r.push(pick([apts(hoodTier(2)), plazaS(), parkS(), sportsS(), shopS()]));
+  return r;
 }
 function recipeShore(){
   const r = [pick([apts(hoodTier(1)), apts(hoodTier()), apts(hoodTier(2)), parkS(), sportsS()])];
@@ -4281,9 +5063,11 @@ function recipeShore(){
   return r;
 }
 
-function generateCity(seed, sizeIdx){
+function generateCity(seed, sizeIdx, layout){
   state.seed = (seed >>> 0) || 1;
   state.size = clamp(sizeIdx === undefined ? (state.size === undefined ? 2 : state.size) : sizeIdx, 0, 3);
+  state.layout = layoutOf(layout || state.layout).k;
+  const LAY = state.layout;
   const SZ = CITY_SIZES[state.size];
   rng = mulberry32(state.seed);
   state.objects.length = 0;
@@ -4317,28 +5101,34 @@ function generateCity(seed, sizeIdx){
   if(!zone.size){ for(let bx = 2; bx < NB - 2; bx++) for(let bz = 2; bz < NB - 6; bz++)
     if(blockLandFrac(bx, bz) > 0.9) zone.set(BK(bx, bz), 'hood'); }
 
-  /* ---- 2. one or two business centres near the water ---- */
-  const nBiz = SZ.biz === 1 ? 1 : SZ.biz === 3 ? (rnd() < 0.5 ? 2 : 3) : (rnd() < 0.45 ? 1 : 2);
+  /* ---- 2. business centres. Standard puts them near the water; Organized
+     zones them together well back from it, so the shore stays residential. ---- */
+  const nBiz = LAY === 'organized' ? Math.max(1, SZ.biz)
+             : SZ.biz === 1 ? 1 : SZ.biz === 3 ? (rnd() < 0.5 ? 2 : 3) : (rnd() < 0.45 ? 1 : 2);
   const biz = [];
   for(let i = 0; i < nBiz; i++){
-    for(let att = 0; att < 120; att++){
+    for(let att = 0; att < 200; att++){
       const bx = bx0 + 2 + Math.floor(rnd() * Math.max(1, fw - 4));
       const bm = shoreRow[bx];
       if(bm < 2) continue;
-      const bz = bm - 1 - Math.floor(rnd() * 2);
+      // Organized: sit at the inland edge of the footprint. Standard: by the water.
+      const bz = LAY === 'organized'
+        ? Math.max(1, bm - fh + 1) + Math.floor(rnd() * 2)
+        : bm - 1 - Math.floor(rnd() * 2);
       if(zone.get(BK(bx, bz)) !== 'hood') continue;
-      if(biz.some(b => Math.abs(b[0] - bx) < 5)) continue;
+      if(biz.some(b => Math.abs(b[0] - bx) < (LAY === 'organized' ? 3 : 5))) continue;
       biz.push([bx, bz]);
       break;
     }
   }
-  const RB = 1.9;
+  const RB = LAY === 'organized' ? 2.6 : 1.9;
   for(const [sx, sz] of biz){
     for(const k of [...zone.keys()]){
       const c = k.split(',');
-      const d = Math.hypot(+c[0] - sx, (+c[1] - sz) * 1.15);
+      const d = Math.hypot(+c[0] - sx, (+c[1] - sz) * (LAY === 'organized' ? 0.85 : 1.15));
       if(d <= RB) zone.set(k, 'biz');
-      else if(d <= RB + 1.25 && zone.get(k) === 'hood') zone.set(k, 'mixed');
+      // Organized keeps a hard edge — no blended ring of half-offices, half-flats
+      else if(LAY !== 'organized' && d <= RB + 1.25 && zone.get(k) === 'hood') zone.set(k, 'mixed');
     }
   }
 
@@ -4372,6 +5162,55 @@ function generateCity(seed, sizeIdx){
     }
   }
 
+  /* ---- 3b. Random throws the zoning out entirely: every block that isn't
+     part of the great park takes whatever it lands on. ---- */
+  if(LAY === 'random'){
+    for(const k of [...zone.keys()]){
+      if(zone.get(k) === 'park') continue;
+      const r = rnd();
+      zone.set(k, r < 0.36 ? 'hood' : r < 0.58 ? 'biz' : r < 0.82 ? 'mixed' : 'park');
+    }
+  }
+
+  /* ---- 3c. tournament-grade sports complexes: several large sports parks
+     side by side, on the fringe of town. One per 250k residents, at least one.
+     Reserved before anything else is placed so nothing else creeps in. ---- */
+  const ZW = 4, ZH = 3;                       // blocks per complex
+  const sportZones = [];
+  if(LAY !== 'random'){
+    const estRes = fw * fh * SZ.per;
+    const want = Math.max(1, Math.ceil(estRes / SPORT_ZONE_PER));
+    const cands = [];
+    for(const k of zone.keys()){
+      const c = k.split(','); const bx = +c[0], bz = +c[1];
+      let ok = true;
+      for(let i = 0; i < ZW && ok; i++) for(let j = 0; j < ZH; j++){
+        const z = zone.get(BK(bx + i, bz + j));
+        if(z !== 'hood' && z !== 'mixed'){ ok = false; break; }
+        if(blockLandFrac(bx + i, bz + j) < 0.93){ ok = false; break; }
+      }
+      if(!ok) continue;
+      // prefer the inland fringe and the flanks — a complex belongs on the edge
+      const edge = Math.min(bx - bx0, bx0 + fw - 1 - (bx + ZW - 1),
+                            (shoreRow[bx] || 0) - (bz + ZH - 1));
+      cands.push([bx, bz, edge]);
+    }
+    cands.sort((a, b) => a[2] - b[2]);
+    for(const [bx, bz] of cands){
+      if(sportZones.length >= want) break;
+      if(sportZones.some(s => Math.abs(s[0] - bx) < ZW + 1 && Math.abs(s[1] - bz) < ZH + 1)) continue;
+      let free = true;
+      for(let i = 0; i < ZW && free; i++) for(let j = 0; j < ZH; j++){
+        const z = zone.get(BK(bx + i, bz + j));
+        if(z !== 'hood' && z !== 'mixed'){ free = false; break; }
+      }
+      if(!free) continue;
+      for(let i = 0; i < ZW; i++) for(let j = 0; j < ZH; j++) zone.set(BK(bx + i, bz + j), 'sportzone');
+      sportZones.push([bx, bz]);
+    }
+    for(const [bx, bz] of sportZones) fillSportZone(bx, bz, ZW, ZH);
+  }
+
   /* ---- 4. waterfront promenade ---- */
   for(let gx = bx0 * PITCH - 4; gx < (bx0 + fw) * PITCH + 4; gx += 3){
     if(gx < 1 || gx > GRID - 4) continue;
@@ -4397,6 +5236,21 @@ function generateCity(seed, sizeIdx){
     const [ax, az] = parkBlocks[Math.floor(parkBlocks.length / 2)];
     const rot = vertical ? 1 : 0;
     if(canPlace('arch', ax * PITCH + 1, az * PITCH + 1, rot, -1)) addObject('arch', ax * PITCH + 1, az * PITCH + 1, rot);
+  }
+  // a cathedral on a civic block, plus a fountain and a statue in the parks
+  for(const [bx, bz] of bizBlocks.slice().reverse()){
+    const rot = vertical ? 0 : 1;
+    if(canPlace('cathedral', bx * PITCH - 1, bz * PITCH, rot, -1)){
+      addObject('cathedral', bx * PITCH - 1, bz * PITCH, rot); break;
+    }
+  }
+  for(const [k, spec] of [[0, 'fountain'], [1, 'statue']]){
+    const pool = parkBlocks.length ? parkBlocks : bizBlocks;
+    for(let i = 0; i < pool.length; i++){
+      const [ax, az] = pool[(k * 3 + i) % pool.length];
+      const gx = ax * PITCH + 1 + k * 2, gz = az * PITCH + 2;
+      if(canPlace(spec, gx, gz, 0, -1)){ addObject(spec, gx, gz, 0); break; }
+    }
   }
 
   /* ---- 5b. superblocks: stadium, malls, factories and outlying forest ---- */
@@ -4445,17 +5299,26 @@ function generateCity(seed, sizeIdx){
       }
     }
   }
-  // a light-industrial edge, on the flank away from the centre
+  // a light-industrial edge. Standard puts it on a flank; Organized tucks it
+  // in behind the office district, well away from the housing.
   {
-    const left = rnd() < 0.5;
-    const bandX = left ? bx0 - 4 : bx0 + fw + 1;
     const rows = [];
     for(const k of zone.keys()) rows.push(+k.split(',')[1]);
     const zLo = Math.min(...rows), zHi = Math.max(...rows);
+    const left = rnd() < 0.5;
+    const bandX = left ? bx0 - 4 : bx0 + fw + 1;
     let made = 0;
-    for(let att = 0; att < 240 && made < 2 + state.size + Math.floor(rnd() * 3); att++){
-      const bx = clamp(bandX + Math.floor(rnd() * 4) - 2, 1, NB - 2);
-      const bz = zLo + Math.floor(rnd() * Math.max(1, zHi - zLo));
+    const want = 2 + state.size + Math.floor(rnd() * 3);
+    for(let att = 0; att < 300 && made < want; att++){
+      let bx, bz;
+      if(LAY === 'organized' && biz.length){
+        const b = biz[Math.floor(rnd() * biz.length)];
+        bx = clamp(b[0] + Math.floor(rnd() * 7) - 3, 1, NB - 2);
+        bz = clamp(b[1] - 2 - Math.floor(rnd() * 3), 1, NB - 2);   // further inland still
+      } else {
+        bx = clamp(bandX + Math.floor(rnd() * 4) - 2, 1, NB - 2);
+        bz = zLo + Math.floor(rnd() * Math.max(1, zHi - zLo));
+      }
       const spec = {type:'factory', w:5 + Math.floor(rnd() * 5), d:3 + Math.floor(rnd() * 4),
                     stories:1 + Math.floor(rnd() * 3)};
       if(placeSpanning(spec, bx, bz, 4)) made++;
@@ -4494,6 +5357,15 @@ function generateCity(seed, sizeIdx){
       }
       if(frac > 0.9 && rnd() < 0.78 && canPlace(BIG, bx * PITCH, bz * PITCH, 0, -1)) addObject(BIG, bx * PITCH, bz * PITCH, 0);
       else fillBlock(bx, bz, rnd() < 0.3 ? [sportsS(), plazaS()] : [parkS(), parkS()]);
+      continue;
+    }
+    if(z === 'sportzone') continue;                     // already laid out
+    if(LAY === 'organized'){
+      // a hard split: offices and light industry on one side, homes on the other
+      if(z === 'biz'){ fillBlock(bx, bz, recipeBizOrg()); continue; }
+      if(frac < 0.85){ fillBlock(bx, bz, recipeShore()); continue; }
+      if(rnd() < 0.15){ fillBlock(bx, bz, recipeGreen()); continue; }
+      fillBlock(bx, bz, recipeHoodOrg());
       continue;
     }
     if(frac < 0.85){ fillBlock(bx, bz, recipeShore()); continue; }
@@ -4620,6 +5492,8 @@ function updateWorld(h, dt){
 
   cityU.uNight.value = p.night;
   cityU.uLit.value = p.lit;
+  cityU.uLitW.value = p.litW;
+  cityU.uLit24.value = p.lit24;
 
   waterU.uTime.value += dt;
   waterU.uSky.value.set(lMid[0] * 0.85 + lTop[0] * 0.35, lMid[1] * 0.85 + lTop[1] * 0.35, lMid[2] * 0.85 + lTop[2] * 0.35);
@@ -4632,6 +5506,9 @@ function updateWorld(h, dt){
   if(lampMesh){ lampMesh.visible = n > 0.10; matBulb.color.setRGB(n, n * 0.82, n * 0.58); }
   if(poolMesh){ poolMesh.visible = n > 0.10; matPool.opacity = 0.20 * n; }
   matTram.emissiveIntensity = 0.6 * n;
+  matTramLamp.color.setRGB(0.42 + 0.58 * n, 0.40 + 0.54 * n, 0.34 + 0.46 * n);
+  matTramBeam.opacity = 0.30 * n;
+  if(tramBeamMesh) tramBeamMesh.visible = n > 0.12;
   const shopV = lerp(0.24, 1.75, n);
   matShop.color.setRGB(shopV, shopV, shopV);
 }
@@ -4639,7 +5516,9 @@ function updateWorld(h, dt){
 let hudT = 0;
 function updateHUD(h){
   const hh = Math.floor(h) % 24, mm = Math.floor((h % 1) * 60);
-  $('clock').textContent = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  $('clock').innerHTML = h12 + ':' + String(mm).padStart(2, '0') +
+                         '<span class="ampm">' + (hh < 12 ? 'am' : 'pm') + '</span>';
   $('phase').textContent = phaseName(h);
   if(!sliderActive) slider.value = String(h.toFixed(2));
 }
@@ -4661,7 +5540,9 @@ function frame(now){
 
   updateCameraInput(dt);
   updateWorld(state.hour, dt);
-  const boost = state.speed === 0 ? 0 : Math.sqrt(state.speed);
+  /* At 1x everyone moves at real speed. Faster clocks speed them up, but only
+     sub-linearly and with a ceiling — otherwise they'd teleport. */
+  const boost = state.speed === 0 ? 0 : clamp(Math.sqrt(state.speed), 1, 8);
   if(boost > 0){
     updateAgents(dt, state.hour, boost);
     updateTrams(dt, boost);
