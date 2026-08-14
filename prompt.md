@@ -21,7 +21,7 @@
 ## The map
 - The world is a square buildable grid of 9 m cells with a wavy coastline running along one side and open countryside on the other three. Beyond the buildable area the ground fades to a muted grey-green, and a pale luminous rail marks the boundary — following the terrain, floating just above the water where it crosses the sea, with posts and taller corner markers.
 - Blocks are 5 cells of buildable land plus a 1-cell street, so the street grid is on a 54 m pitch with 9 m car-free streets.
-- Map size is chosen when starting a new city: **Small 0.9 km / Medium 1.3 km / Large 1.7 km / Huge 2.2 km** square. Everything scales with it — occupancy grids, the routing lattice, terrain, how far out the coast sits, camera limits.
+- Map size is chosen when starting a new city: **Small 0.9 km / Medium 1.3 km / Large 2.2 km / Huge 5.0 km** square. Everything scales with it — occupancy grids, the routing lattice, terrain, how far out the coast sits, camera limits. Huge is genuinely huge: keep the terrain mesh resolution capped so it doesn't balloon, and note that a full metropolis on it runs to five thousand objects and takes the best part of a second to rebuild. That's the price of the biggest setting.
 - Streets only appear where the city has actually grown: paved where buildings are, soft meandering footpaths where the neighbouring blocks are parkland, untouched grass out in the countryside.
 
 ## Objects (the things I place)
@@ -59,7 +59,7 @@ A panel lists the lines for whichever tool I'm holding, with colour, stop count,
 
 Lines are also objects I can click. With no tool in hand, clicking a tram track — or a subway tube in transit view — selects that line: it lights up white, and a panel shows its stop count, length in kilometres, colour swatches, **Extend** and **Delete**. `Delete` removes it too. Clicking a drag still orbits, so only a click without movement selects.
 
-**Tram track is derived, not painted.** Between consecutive stops the line finds the shortest route through the street grid, and twin tracks are laid along every cell of it. Track begins and ends at a stop — never a metre beyond the last one. It's **green track**: rails set into a grass bed with tufts growing between and beside them, not a grey ballast strip. Trams run the length of their own line and **pause a couple of seconds at every stop**, longer at each terminus before reversing. They carry **headlamps at both ends** and cast a soft beam on the track ahead of whichever end is leading — see **Night**. The track disappears when the line or its stops do. Subway lines are tunnels, drawn straight between stops.
+**Tram track is derived, not painted.** Between consecutive stops the line finds the shortest route through the street grid, and twin tracks are laid along every cell of it. The grass bed takes 8.2 m of a 9 m street, so **nothing else may stand in the corridor**: clear street trees, lamp posts, and the trees that towers and parks scatter onto the pavement out of any cell carrying track. Do this once at the end of the rebuild rather than trying to guard every place that plants something — nothing else knows where the line ended up running, and a tram driving through a tree ruins the illusion instantly. Roof gardens are exempt, obviously. Track begins and ends at a stop — never a metre beyond the last one. It's **green track**: rails set into a grass bed with tufts growing between and beside them, not a grey ballast strip. Trams run the length of their own line and **pause a couple of seconds at every stop**, longer at each terminus before reversing. They carry **headlamps at both ends** and cast a soft beam on the track ahead of whichever end is leading — see **Night**. The track disappears when the line or its stops do. Subway lines are tunnels, drawn straight between stops.
 
 Stops themselves are compact: a single island platform beside the track with a shelter, a kerb edge and a sign — nothing spilling into the neighbouring cells.
 
@@ -98,8 +98,24 @@ And **the streets genuinely quiet down.** Evening outings are the exception rath
 - Placement snaps to the grid. Buildings sit on blocks; transit runs along streets. Objects large enough to swallow a block (stadium, mall, factory, forest, sports park, cathedral) may span streets — the street surface disappears beneath them and the buried intersection drops out of the walking network so people route around.
 - Clicking never simply refuses: a placement snaps to the nearest legal slot, so the ghost shows exactly where it will land. Only water and the edge of the map are off limits, and the message says which.
 - Placing something on top of existing objects deletes them. Same when dragging one building onto its neighbours.
-- **New City** opens a dialog: map size, city size, or a **blank map** (terrain and water only, dropped straight into Edit mode).
-- City sizes are **Village (~18k), Town (~45k), City (~200k), Metropolis (~800k)** residents. Bigger cities occupy more blocks *and* build taller — a village is 6–18 storey blocks, a metropolis mostly 56–72 storey ones.
+- **New City** opens a dialog: map size, city size, **layout**, or a **blank map** (terrain and water only, dropped straight into Edit mode).
+- City sizes are **Village (~18k), Town (~150k), City (~500k), Metropolis (~2 million)** residents — each step is a bit over three times the last. Bigger cities occupy more blocks *and* build taller: a village is mostly 6–18 storey blocks, a town runs to 16–60, a city leans on 32–72, and a metropolis is 40% blocks of 56–72 storeys. Footprints run from about 8 × 7 blocks up to 48 × 33, so a metropolis only reaches full size on the Huge map; on smaller maps it trims to fit and lands proportionally lower.
+- Whatever numbers the New City dialog quotes should be **what actually gets built** — calibrate the per-block figure against real generated cities rather than guessing, and re-check it whenever the density mix changes. A dialog that promises 200k and delivers 600k is worse than no estimate at all.
+
+### Layout
+Three ways to plan the city, chosen when starting a new one:
+
+- **Random** — no planning at all. Every block outside the great park takes whatever zoning it happens to land on, so offices, flats and factories end up shoulder to shoulder. Chaotic on purpose.
+- **Standard** — the default described below: business centres by the water, neighbourhoods around them, a blended ring in between.
+- **Organized** — proper zoning. Offices are grouped into districts placed at the **inland edge of the footprint, well back from the water**, so the shore stays residential. The office district holds tall towers, some shops, some plazas and parks, **and nothing to live in** — not even flats on a mall roof. Light industry sits out beyond it on open ground. Everything else is residential: apartments, parks, schools, libraries, shops and sports fields.
+
+  Critically, the two are held apart by a **green belt** rather than meeting at a line: a band of woodland, parkland, plazas and playing fields wrapping the office district, with nothing to live in and nothing to work in. Scale the belt to the footprint — a fixed width would swallow half of a small city — so it runs from about a block and a half in a town up to three blocks in a metropolis, and **scale the number of districts to the footprint too**, since each one carries its own belt: a town wants a single large district, not three that between them eat the whole map. The result should be stark next to Standard: an office's nearest block of flats goes from around 30 m away to 90–200 m, with a median separation of 150–300 m, and a metropolis grows from nine patches of woodland to well over a hundred. Organized should cost some population — the belt is real land — but only about 10% in a city, not half of it.
+
+### Sports complexes
+Standard and Organized cities both get **tournament-grade sports complexes: one for every 250,000 residents, and always at least one**, even in a village. A complex is a reserved patch of ground — up to four blocks by three — tiled with a **two-by-two grid of full-size Sports Parks**, each with its own track, pool, courts and floodlights, plus pitches and a gathering plaza squeezed into the gaps. Somewhere you could run a weekend kids' tournament across several fields at once.
+
+Reserve the ground during zoning, before anything else is placed, so the rest of the city builds around it. Claim the biggest sites first and only fall back to smaller ones if the town has no room, size the parks so they tile the site exactly two across and two deep, keep complexes in different quarters of the city rather than letting them merge into one, and site them towards a flank and well back from the shore — sports parks span streets, so they need space the waterfront doesn't have. Random cities get none; the whole point of Random is that nobody planned anything.
+
 - A generated city has real structure:
   - A footprint hugging the wavy coastline, with open country beyond it on all other sides.
   - **Neighbourhoods** — apartments, schools, libraries, shops, local parks and plazas. No office towers.
@@ -145,6 +161,33 @@ Two clearly toggled modes (Tab switches):
 
 Camera, both modes: **left-drag orbits** (with a sensible tilt clamp), **right- or middle-drag pans**, scroll zooms, WASD/arrows move, `F` resets to frame the city. Make it feel effortless.
 
+### Flyby
+A **Flyby** button (or `V`) hands the camera over to a slow, calm, cinematic tour of the city — something you can leave running. It cycles through shot types, each lasting a quarter of a minute or so, cutting between them with a brief fade to black:
+
+- **Street level** — an eye-line walk at about 1.6 m, moving at a stroll along a street towards something worth seeing.
+- **Bird flight** — gliding at around **20 feet** up, in among the buildings, following the street corridors at maybe 12 m/s with a gentle rise and fall.
+- **Aerial** — a drone hanging 60–260 m up, drifting slowly around a landmark.
+- **Over the city** — a high, wide establishing shot, easing in as it turns.
+
+Shots are aimed at what makes the city worth looking at: **fountains and statues first, then the cathedral, the arch, the spire, the megatower, the stadium, lakes, parks, promenades and sports parks**, with the tallest towers as a fallback. Keep a short memory of what has just been shown so the tour doesn't circle the same fountain twice in a minute.
+
+Two details matter for it to feel right. **Ground and bird shots must follow the street grid** — route them through the same lattice the pedestrians use, so the camera never sails through a wall. And **smooth the camera position heavily** so it eases around the right-angle corners of the grid rather than snapping, but **snap it to the opening frame at each cut** — the fade hides the jump, and gliding in from the previous shot's position starts the new one badly framed.
+
+`N` skips to the next shot, `Esc` or the Exit button returns to the free camera at wherever it ended up. Hide the editing panels while it runs and dim the stats, so there's nothing between me and the city.
+
+### Riding along
+In View mode, **clicking a person or a tram rides along with them**, and **dragging still looks freely around: up, down, left and right**. Scrolling moves between first person and a chase view.
+
+**A person** starts in first person, 1.6 m off the ground — it's meant to be their viewpoint — and scrolls back over the shoulder to about 16 m.
+
+**A tram** starts as a **chase shot behind and above the roof**: roughly 5 m back from the tail and 8 m up, tilted slightly down, so you watch the tram run the green track ahead of you. Scrolling all the way in puts you in **the driver's cab, not the middle of the carriage** — the body is 21 m long, so that's about 9 m forward of centre at 2.9 m up, flipping to the other end when the tram reverses at a terminus. Scrolling out goes to about 25 m back.
+
+A tram is a rigid body running on rails and its position is already smoothed, so **bolt the camera to it rather than easing towards it**: exponential smoothing looks fine on a person but lets the camera lag several metres back down the carriage once the tram is at speed. People need the damping — they bob and turn sharp corners.
+
+The figures are far too small to hit with an exact raycast, so pick whoever is *nearest the click ray* within a tolerance that widens with distance, trying trams before people. Label who I'm following and what they're up to — off to work, out and about, off to play, heading home — and whether they're walking, cycling or on transit.
+
+When they step inside a building or drop into the subway, hold the camera and say so rather than cutting away instantly; if they stay in there more than about ten seconds, let go and say why, because staring at a wall is not a feature. Let go too if the crowd gets re-seeded underneath me. Switching to Edit mode ends the ride.
+
 Edit interactions: left-click an object to select it (left-drag on empty ground still orbits), drag to move, `R` to rotate, `Delete` to remove, `Esc` to cancel. Hovering anything shows a tooltip with its type, size, storeys, style and capacity.
 
 **Focus view — the HUD counts are the filter.** Every count in the top-left panel is a button. Click **63 Libraries** and every library in the city keeps its full colour while everything else washes out to a pale ghost, so I can see at a glance where they are and where the gaps are. Above the counts sits a row of category chips — **Housing, Work, Civic, Green, Transit, Landmarks** — that do the same for a whole category, and the **Residents** and **Jobs** figures highlight everywhere people live and everywhere they work. Clicking the active one again, or `Esc`, brings the city back.
@@ -159,16 +202,16 @@ Build it as a per-vertex flag baked into the merged geometry during the rebuild,
 While it's on, the view is a transit editor: only transit objects can be hovered, selected or edited, non-transit palette entries dim, and choosing one of them drops back out of the view. The transit view and the focus view are mutually exclusive — entering one leaves the other. One place should own the material state for both, because toggling transparency recompiles shaders and the two settings will otherwise fight each other.
 
 ## HUD
-A clean, unobtrusive overlay: the am/pm clock and time of day, total residents, jobs and people outside, a category strip, a clickable count for **every** kind of thing in the city plus tram and bike kilometres, a mode toggle, New City, and Save / Load. There is **no Transit button** — the transit map is reached from the Transit category chip, any transit count, or `M`.
+A clean, unobtrusive overlay: the am/pm clock and time of day, total residents, jobs and people outside, a category strip, a clickable count for **every** kind of thing in the city plus tram and bike kilometres, a mode toggle, Flyby, New City, and Save / Load. There is **no Transit button** — the transit map is reached from the Transit category chip, any transit count, or `M`.
 
 The bottom-right panel stacks two rows: **time** (pause / 1× / 60× / 600×, hour slider, reset view) above **people** (Light / Medium / Heavy / Very heavy density, and the figure-size slider with its multiplier shown). Minimal and pretty — glass panels, tabular numbers, nothing shouting.
 
 ## Save & load
-- Save to a JSON file I can download: map size, seed, clock, camera, my people size and density settings, every subway line, and every object with its stable id, position, rotation, storeys, footprint, colour, style, sport and layer. Load by picking a file back — including one saved on a different map size.
+- Save to a JSON file I can download: map size, seed, clock, camera, the layout it was generated with, my people size and density settings, every subway line, and every object with its stable id, position, rotation, storeys, footprint, colour, style, sport and layer. Load by picking a file back — including one saved on a different map size.
 - Autosave to localStorage so a refresh doesn't lose my city.
 
 ## Non-goals (keep it a joyful sandbox)
 No money/budget, no utilities (power, water, sewage), no pollution or traffic-failure sims, no disasters, no win/lose or failure states, no obstacle-course tutorial. This is a relaxing toy for prototyping ideas and enjoying the result — nothing to manage and nothing to lose.
 
 ## Definition of done
-It opens (or serves) and immediately shows a living, green, car-free city beside water with people moving at a believable walking pace, and roof gardens on every block of flats. The clock runs in real time, or at 60× or 600× when I want to watch a whole day go by, and shows visibly different rhythms — morning commute, a lunchtime crowd, an evening game, offices going dark by 9pm and flats by 11, lit paths and tram headlights crossing a quiet city at midnight. I can dial the crowd from Light to Very heavy and the figures from tiny to oversized. Clicking any count in the HUD spotlights just that kind of thing across the whole city. I can toggle view/edit, move the camera around easily, place anything anywhere — including a sports park, a statue, a fountain and a cathedral — tune its height, footprint, colour and architectural style, stack flats on a mall, run a path through a forest, draw my own subway lines and flip to the metro map, start a fresh city at any size or from a blank map, and save/load to a file. It looks beautiful and calm and makes me want to keep watching. You have creative latitude on execution and procedural details — use it to maximize beauty and that feeling of *"I made this, but I couldn't have designed it exactly."*
+It opens (or serves) and immediately shows a living, green, car-free city beside water with people moving at a believable walking pace, and roof gardens on every block of flats. The clock runs in real time, or at 60× or 600× when I want to watch a whole day go by, and shows visibly different rhythms — morning commute, a lunchtime crowd, an evening game, offices going dark by 9pm and flats by 11, lit paths and tram headlights crossing a quiet city at midnight. I can dial the crowd from Light to Very heavy and the figures from tiny to oversized. Clicking any count in the HUD spotlights just that kind of thing across the whole city. I can toggle view/edit, move the camera around easily, place anything anywhere — including a sports park, a statue, a fountain and a cathedral — tune its height, footprint, colour and architectural style, stack flats on a mall, run a path through a forest, draw my own subway lines and flip to the metro map, start a fresh city at any size, in any of the three layouts, or from a blank map, and save/load to a file. Whatever I pick, there is always somewhere for the kids to play a tournament. And when I have finished building, I can hit Flyby and just watch the place, or click one of the little people and walk their commute with them. It looks beautiful and calm and makes me want to keep watching. You have creative latitude on execution and procedural details — use it to maximize beauty and that feeling of *"I made this, but I couldn't have designed it exactly."*

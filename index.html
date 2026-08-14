@@ -135,6 +135,19 @@
     border-radius:9px;padding:6px 9px;font-size:11.5px;line-height:1.45;display:none;max-width:220px;
     box-shadow:var(--shadow);backdrop-filter:blur(8px)}
   #tip b{color:var(--accent)}
+  /* cinematic modes: flyby and ride-along */
+  #fade{position:fixed;inset:0;background:#05090c;opacity:0;pointer-events:none;z-index:20;
+    transition:opacity .38s ease}
+  #fade.on{opacity:1}
+  #cine{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:none;
+    align-items:center;gap:12px;padding:9px 10px 9px 15px;z-index:12}
+  #cine.show{display:flex}
+  #cine .ct{font-size:12.5px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+  #cine .cs{font-size:10px;color:var(--dim);letter-spacing:1.1px;text-transform:uppercase}
+  #cine .cd{display:flex;flex-direction:column;gap:2px}
+  body.cinema #palette, body.cinema #inspect, body.cinema #legend, body.cinema #topright{display:none !important}
+  body.cinema #topleft{opacity:.55;transition:opacity .3s}
+  body.cinema #topleft:hover{opacity:1}
   #toast{position:absolute;left:50%;bottom:126px;transform:translateX(-50%);background:rgba(10,16,20,.86);
     border:1px solid var(--stroke);border-radius:11px;padding:9px 15px;font-size:12.5px;opacity:0;
     transition:opacity .35s, transform .35s;box-shadow:var(--shadow)}
@@ -192,6 +205,7 @@
       <button data-mode="view" class="on">View</button>
       <button data-mode="edit">Edit</button>
     </div>
+    <button class="btn" id="btnFly" title="Cinematic tour of the city (V)">Flyby</button>
     <button class="btn" id="btnNew">New City</button>
     <button class="btn" id="btnSave">Save</button>
     <button class="btn" id="btnLoad">Load</button>
@@ -233,9 +247,15 @@
     <div class="lgr"><i style="background:#ebdcb8"></i>Walking path</div>
   </div>
   <div class="panel" id="inspect"></div>
+  <div class="panel" id="cine">
+    <div class="cd"><span class="cs" id="cineKind">Flyby</span><span class="ct" id="cineWhat"></span></div>
+    <button class="btn" id="cineNext" title="Skip to the next shot">Next shot</button>
+    <button class="btn" id="cineExit" title="Back to the free camera (Esc)">Exit</button>
+  </div>
   <div id="tip"></div>
   <div id="toast"></div>
 </div>
+<div id="fade"></div>
 
 <div id="modal">
   <div class="dlg panel">
@@ -303,12 +323,12 @@ let GRID     = 144;      // cells across the buildable grid — set by the New C
 let HALF     = GRID / 2;
 let WORLD    = GRID * CELL;
 let SHORE    = 395;      // how far out the coast sits
-const MAP_SIZES  = [{n:'Small', g:96}, {n:'Medium', g:144}, {n:'Large', g:192}, {n:'Huge', g:240}];
+const MAP_SIZES  = [{n:'Small', g:96}, {n:'Medium', g:144}, {n:'Large', g:240}, {n:'Huge', g:552}];
 const CITY_SIZES = [
-  {n:'Village',    fw:[5,7],   fh:[4,6],   biz:1, per:550},
-  {n:'Town',       fw:[8,10],  fh:[6,8],   biz:1, per:740},
-  {n:'City',       fw:[14,18], fh:[10,13], biz:2, per:1080},
-  {n:'Metropolis', fw:[26,31], fh:[17,21], biz:3, per:1450},
+  {n:'Village',    fw:[6,9],   fh:[5,8],   biz:1, per:370},
+  {n:'Town',       fw:[14,18], fh:[10,13], biz:2, per:840},
+  {n:'City',       fw:[22,26], fh:[17,22], biz:3, per:1080},
+  {n:'Metropolis', fw:[44,52], fh:[30,36], biz:5, per:1270},
 ];
 
 const DAY_SECONDS = 86400;           // real seconds for one full day at 1x — 1x is real time
@@ -2263,6 +2283,32 @@ function buildTramTracks(L){
     }
   }
 }
+/* The grass bed is 8.2 m of a 9 m street, so anything scattered onto a street —
+   street trees, the trees a tower or a park throws out, lamp posts — can easily
+   land between the rails. Nothing else knows where the track runs, so clear the
+   corridor once at the end of the rebuild rather than guarding every source. */
+const TRAM_CLEAR = 4.6;
+function clearTramCorridor(){
+  const cells = new Map();
+  for(const path of (G.tramPaths || [])) for(const c of (path.cells || [])){
+    const k = c.gx + ',' + c.gz;
+    const e = cells.get(k) || {x:false, z:false};
+    e.x = e.x || c.x; e.z = e.z || c.z;
+    cells.set(k, e);
+  }
+  if(!cells.size) return;
+  const blocked = (px, pz) => {
+    const [gx, gz] = cellFromWorld(px, pz);
+    const e = cells.get(gx + ',' + gz);
+    if(!e) return false;
+    if(e.x && Math.abs(pz - wz(gz)) < TRAM_CLEAR) return true;   // track runs along x
+    if(e.z && Math.abs(px - wx(gx)) < TRAM_CLEAR) return true;   // track runs along z
+    return false;
+  };
+  trees = trees.filter(t => (t.y || 0) > 1 || !blocked(t.x, t.z));
+  for(let i = lamps.length - 1; i >= 0; i--)
+    if(!(lamps[i].y > 1) && blocked(lamps[i].x, lamps[i].z)) lamps.splice(i, 1);
+}
 
 /* A slim post-top lamp beside a path, alternating sides — walking and cycling
    routes should read as clearly lit after dark. */
@@ -3001,6 +3047,7 @@ function rebuildCity(){
     emitSigns(SG, o);
   }
   curFocus = 1;
+  clearTramCorridor();
   if(signMesh){ scene.remove(signMesh); signMesh.geometry.dispose(); signMesh = null; }
   const sg = signGeometry(SG);
   if(sg){
@@ -3879,7 +3926,10 @@ function updateTrams(dt, rawBoost){
     const k2 = 1 - Math.pow(0.02, dt);
     tr.ox += (tx - tr.ox) * k2; tr.oz += (tz - tr.oz) * k2;
     const ang = Math.atan2(dxn, dzn);
-    p.set(x + tr.ox, 0.3, z + tr.oz);
+    // remember where it ended up, so the camera can ride along
+    tr.wx = x + tr.ox; tr.wz = z + tr.oz;
+    tr.wang = tr.dir < 0 ? ang + Math.PI : ang;
+    p.set(tr.wx, 0.3, tr.wz);
     q.setFromAxisAngle(up, ang + Math.PI / 2);
     m.compose(p, q, s);
     tramMesh.setMatrixAt(i, m);
@@ -4048,6 +4098,8 @@ canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
   downPos = {x:e.clientX, y:e.clientY};
   action = null;
+  if(cine.mode === 'follow'){ action = 'look'; return; }             // drag looks around
+  if(cine.mode === 'fly') return;
   if(e.button === 2 || e.button === 1){ action = 'pan'; return; }   // right/middle drag pans
   if(e.button !== 0) return;
 
@@ -4076,6 +4128,12 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 canvas.addEventListener('pointermove', e => {
+  if(action === 'look'){
+    cine.yaw -= e.movementX * 0.0042;
+    cine.pitch = clamp(cine.pitch - e.movementY * 0.0036, -1.1, 1.05);
+    return;
+  }
+  if(cine.mode !== 'off') return;
   if(action === 'orbit'){
     camGoal.az += e.movementX * 0.005;
     camGoal.el = clamp(camGoal.el - e.movementY * 0.004, 0.10, 1.45);
@@ -4146,6 +4204,11 @@ canvas.addEventListener('pointermove', e => {
 
 addEventListener('pointerup', e => {
   const still = downPos && Math.abs(e.clientX - downPos.x) < 4 && Math.abs(e.clientY - downPos.y) < 4;
+  // in view mode, a click on somebody rides along with them
+  if(action === 'orbit' && still && state.mode === 'view' && cine.mode === 'off' && e.button === 0){
+    const r = pickRider(e);
+    if(r){ startFollow(r.subject, r.kind, r.label); action = null; downPos = null; return; }
+  }
   if(action === 'orbit' && still && state.mode === 'edit' && !state.tool && e.button === 0){
     const li = pickLine(e);
     if(li >= 0) selectLine(li);
@@ -4177,6 +4240,12 @@ addEventListener('pointerup', e => {
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
+  if(cine.mode === 'follow'){                     // between first person and a chase view
+    const mx = cine.maxBack || 16;
+    cine.back = clamp(cine.back + clamp(e.deltaY, -120, 120) * mx * 0.0009, 0, mx);
+    return;
+  }
+  if(cine.mode !== 'off') return;
   camGoal.dist = clamp(camGoal.dist * Math.exp(clamp(e.deltaY, -160, 160) * 0.0012), 22, 3000);
 }, {passive:false});
 
@@ -4262,7 +4331,10 @@ addEventListener('keydown', e => {
   keys.add(k);
   if(k === 'escape' && $('modal').classList.contains('show')){ closeNewDialog(); return; }
   if((k === 'enter' || k === 'escape') && drawLine >= 0){ finishLine(); if(k === 'enter') return; }
+  if(k === 'v' && !e.ctrlKey && !e.metaKey){ cine.mode === 'fly' ? stopCinema() : startFlyby(); return; }
+  if(k === 'n' && cine.mode === 'fly'){ nextShot(); return; }
   if(k === 'escape'){
+    if(cine.mode !== 'off'){ stopCinema(); return; }
     if(state.focus){ clearFocus(); return; }
     setTool(null); state.selected = -1; updateSelectionBox(); buildInspector(true); ghost.visible = false;
   }
@@ -4306,6 +4378,8 @@ addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 addEventListener('blur', () => keys.clear());
 
 function updateCameraInput(dt){
+  if(cine.mode === 'fly'){ updateFlyby(dt); return; }
+  if(cine.mode === 'follow'){ updateFollow(dt); return; }
   const sp = (keys.has('shift') ? 2.2 : 1) * cam.dist * 0.85 * dt;
   let fx = 0, fz = 0;
   if(keys.has('w') || keys.has('arrowup')) fz += 1;
@@ -4327,6 +4401,333 @@ function updateCameraInput(dt){
   cam.az = lerp(cam.az, camGoal.az, k);
   cam.el = lerp(cam.el, camGoal.el, k);
   applyCamera();
+}
+
+/* ============================================================================
+   10b. CINEMATIC CAMERA — flyby tours and riding along with a person or tram
+   ========================================================================== */
+
+const cine = {
+  mode: 'off',                       // 'off' | 'fly' | 'follow'
+  pos: new THREE.Vector3(), look: new THREE.Vector3(),
+  yaw: 0, pitch: 0, back: 0,         // the viewer's own look-around while following
+  subject: null, kind: '', label: '',
+  shot: null, t: 0, recent: [],
+};
+const EYE = 1.62, BIRD_Y = 6.4;      // a person's eye line; a bird about 20 feet up
+const TRAM_NOSE = 9.2;               // from the tram's centre to the driver's cab
+
+/* --- points worth showing ------------------------------------------------- */
+const POI_WEIGHT = {fountain:9, statue:8, cathedral:8, arch:7, spire:7, mega:6, stadium:6,
+                    lake:6, park:5, sportspark:5, plaza:4, prom:5, forest:3, sports:3,
+                    mall:2, shopping:2};
+function flyPoints(){
+  const pts = [];
+  for(const o of state.objects){
+    const T = TYPES[o.type];
+    if(!T) continue;
+    let w = POI_WEIGHT[o.type] || 0;
+    if(!w && T.kind === 'building' && storiesOf(o) >= 45) w = 2;
+    if(!w) continue;
+    const c = objCentre(o);
+    pts.push({o, x:c.x, z:c.z, h:objHeight(o), w, r:Math.max(c.w, c.d) * CELL * 0.5});
+  }
+  return pts;
+}
+function pickPOI(pts){
+  if(!pts.length) return null;
+  for(let att = 0; att < 24; att++){
+    let s = 0;
+    for(const p of pts) s += p.w;
+    let r = rnd() * s;
+    let hit = pts[0];
+    for(const p of pts){ r -= p.w; if(r <= 0){ hit = p; break; } }
+    if(!cine.recent.includes(hit.o)) {
+      cine.recent.push(hit.o);
+      if(cine.recent.length > 6) cine.recent.shift();
+      return hit;
+    }
+  }
+  return pts[Math.floor(rnd() * pts.length)];
+}
+
+/* --- polyline helpers ----------------------------------------------------- */
+function pathLength(p){
+  let a = 0;
+  for(let i = 0; i < p.length - 1; i++) a += Math.hypot(p[i+1].x - p[i].x, p[i+1].z - p[i].z);
+  return a;
+}
+function samplePath(p, s){
+  let acc = 0;
+  for(let i = 0; i < p.length - 1; i++){
+    const dx = p[i+1].x - p[i].x, dz = p[i+1].z - p[i].z;
+    const L = Math.hypot(dx, dz) || 1e-3;
+    if(acc + L >= s){ const t = (s - acc) / L; return {x: p[i].x + dx * t, z: p[i].z + dz * t}; }
+    acc += L;
+  }
+  const a = p[Math.max(0, p.length - 2)], b = p[p.length - 1];
+  const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+  const over = s - acc;
+  return {x: b.x + dx / L * over, z: b.z + dz / L * over};
+}
+/* A route through the street grid, so the camera never flies through a wall. */
+function streetRoute(fx, fz, tx, tz){
+  const a = nearestNode(fx, fz), b = nearestNode(tx, tz);
+  if(a < 0 || b < 0 || a === b) return null;
+  const nodes = routeNodes('rail', a, b);
+  if(!nodes || nodes.length < 2) return null;
+  return nodes.map(n => ({x: G.x[n], z: G.z[n]}));
+}
+
+/* --- shot construction ---------------------------------------------------- */
+function makeShot(kind, pts){
+  const poi = pickPOI(pts);
+  if(!poi) return null;
+  const label = poi.o ? TYPES[poi.o.type].label : 'the city';
+  if(kind === 'drone'){
+    const r0 = clamp(poi.r * 2.6 + 110, 130, 340);
+    const a0 = rnd() * Math.PI * 2;
+    return {kind, dur: 19, label, poi,
+            c:{x:poi.x, z:poi.z}, r0, r1: r0 * (0.72 + rnd() * 0.2),
+            a0, a1: a0 + (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.45),
+            y0: clamp(poi.h * 1.5 + 70, 90, 260), y1: clamp(poi.h * 1.1 + 40, 55, 200)};
+  }
+  if(kind === 'reveal'){
+    const a0 = rnd() * Math.PI * 2;
+    const r0 = clamp(homeView.dist * 0.62, 240, 1500);
+    return {kind, dur: 16, label: 'the city', poi:{x:homeView.x, z:homeView.z},
+            c:{x:homeView.x, z:homeView.z}, r0, r1: r0 * 0.88,
+            a0, a1: a0 + 0.30, y0: r0 * 0.52, y1: r0 * 0.44};
+  }
+  // ground and bird shots travel a street towards something worth looking at
+  const ground = kind === 'ground';
+  const speed = ground ? 3.4 : 12;
+  const dur = ground ? 18 : 13;
+  const reach = speed * dur;
+  let route = null;
+  for(let att = 0; att < 30 && !route; att++){
+    const a = rnd() * Math.PI * 2;
+    const d = reach * (0.85 + rnd() * 0.5);
+    const r = streetRoute(poi.x + Math.cos(a) * d, poi.z + Math.sin(a) * d, poi.x, poi.z);
+    if(r && pathLength(r) > reach * 0.55) route = r;
+  }
+  if(!route) return null;
+  return {kind, dur, label, poi, path: route, speed, s: Math.max(0, pathLength(route) - reach)};
+}
+const SHOT_ORDER = ['reveal', 'drone', 'bird', 'ground', 'drone', 'bird', 'ground', 'drone', 'bird'];
+let shotSeq = 0;
+function nextShot(instant){
+  const pts = flyPoints();
+  if(!pts.length){ toast('Build something first — there is nothing to fly over'); stopCinema(); return; }
+  let s = null;
+  for(let att = 0; att < 12 && !s; att++){
+    const kind = SHOT_ORDER[shotSeq++ % SHOT_ORDER.length];
+    s = makeShot(kind, pts);
+  }
+  if(!s) s = makeShot('drone', pts);
+  cine.shot = s; cine.t = 0;
+  if(s){
+    // snap to the opening frame — the cut is hidden by the fade, and gliding in
+    // from the last shot's position would start the new one badly framed
+    const f = shotFrame(s, 0);
+    cine.pos.set(f.px, f.py, f.pz);
+    cine.look.set(f.lx, f.ly, f.lz);
+    $('cineKind').textContent =
+      s.kind === 'ground' ? 'Street level' : s.kind === 'bird' ? 'Bird flight'
+      : s.kind === 'reveal' ? 'Over the city' : 'Aerial';
+    $('cineWhat').textContent = s.label;
+  }
+  if(!instant) flash();
+}
+let fadeT = 0;
+function flash(){
+  const f = $('fade');
+  if(!f) return;
+  f.classList.add('on');
+  clearTimeout(fadeT);
+  fadeT = setTimeout(() => f.classList.remove('on'), 260);
+}
+
+/* --- driving the camera --------------------------------------------------- */
+function shotFrame(s, t){
+  const u = clamp(t / s.dur, 0, 1);
+  const e = u * u * (3 - 2 * u);                    // ease the whole move
+  if(s.kind === 'drone' || s.kind === 'reveal'){
+    const a = lerp(s.a0, s.a1, e), r = lerp(s.r0, s.r1, e), y = lerp(s.y0, s.y1, e);
+    return {px: s.c.x + Math.cos(a) * r, py: y, pz: s.c.z + Math.sin(a) * r,
+            lx: s.c.x, ly: (s.poi.h || 0) * 0.45, lz: s.c.z};
+  }
+  const dist = s.s + t * s.speed;
+  const p = samplePath(s.path, dist);
+  const ahead = samplePath(s.path, dist + (s.kind === 'ground' ? 22 : 42));
+  const bob = s.kind === 'bird' ? Math.sin(t * 0.55) * 0.7 : Math.sin(t * 1.6) * 0.045;
+  const y = (s.kind === 'ground' ? EYE : BIRD_Y) + bob;
+  // drift the look towards the point of interest as we close on it
+  const dp = Math.hypot(s.poi.x - p.x, s.poi.z - p.z);
+  const pull = clamp(1 - dp / 90, 0, 0.65);
+  return {px: p.x, py: y, pz: p.z,
+          lx: lerp(ahead.x, s.poi.x, pull), ly: y - 0.25 + pull * (s.poi.h || 0) * 0.22,
+          lz: lerp(ahead.z, s.poi.z, pull)};
+}
+const _cl = new THREE.Vector3();
+function updateFlyby(dt){
+  if(!cine.shot){ nextShot(true); if(!cine.shot) return; }
+  cine.t += dt;
+  if(cine.t >= cine.shot.dur){ nextShot(); if(!cine.shot) return; }
+  const f = shotFrame(cine.shot, cine.t);
+  const k = 1 - Math.pow(0.06, dt);                 // smoothing rounds the street corners
+  cine.pos.lerp(_cl.set(f.px, f.py, f.pz), k);
+  cine.look.lerp(_cl.set(f.lx, f.ly, f.lz), 1 - Math.pow(0.12, dt));
+  camera.position.copy(cine.pos);
+  camera.lookAt(cine.look);
+}
+
+/* --- riding along --------------------------------------------------------- */
+const _ct = new THREE.Vector3();
+function subjectPose(){
+  const s = cine.subject;
+  if(!s) return null;
+  if(cine.kind === 'agent'){
+    // the agent list is re-seeded when density changes; keep an index fast-path
+    if(agents[cine.idx] !== s){
+      cine.idx = agents.indexOf(s);
+      if(cine.idx < 0) return null;
+    }
+    return {x: s.x, y: (s.hidden || s.state === 'in') ? null : 0, z: s.z,
+            hx: s.hx, hz: s.hz, eye: EYE * clamp(state.pplSize, 0.5, 1.6)};
+  }
+  if(trams.indexOf(s) < 0 || s.wx === undefined) return null;
+  // ride in the cab, not the middle: the body is 21 m long, so sit just behind
+  // the leading nose. wang already flips when the tram reverses at a terminus.
+  const hx = Math.sin(s.wang), hz = Math.cos(s.wang);
+  return {x: s.wx + hx * TRAM_NOSE, y: 0, z: s.wz + hz * TRAM_NOSE, hx, hz, eye: 2.9,
+          rigid: true, rise: 0.22};
+}
+function updateFollow(dt){
+  const p = subjectPose();
+  if(!p){ toast('Lost them — back to the free camera'); stopCinema(); return; }
+  const indoors = p.y === null;
+  cine.hiddenT = indoors ? (cine.hiddenT || 0) + dt : 0;
+  $('cineWhat').textContent = indoors
+    ? cine.label + ' — gone inside' + (cine.hiddenT > 4 ? ' (waiting…)' : '')
+    : cine.label;
+  if(cine.hiddenT > 11){          // they have settled in for a while; don't stare at a wall
+    toast('They have gone in for a while — click someone else');
+    stopCinema();
+    return;
+  }
+  if(!indoors){
+    const head = Math.atan2(p.hx, p.hz);
+    const yaw = head + cine.yaw;
+    const back = cine.back;
+    _ct.set(p.x - Math.sin(yaw) * back, p.y + p.eye + back * (p.rise || 0.28), p.z - Math.cos(yaw) * back);
+    // A tram is a rigid body on rails and its own motion is already smoothed, so
+    // bolt the camera to the cab. Smoothing here would just let it lag back down
+    // the carriage at speed. People need the damping — they bob and turn sharply.
+    if(p.rigid && !back) cine.pos.copy(_ct);
+    else cine.pos.lerp(_ct, 1 - Math.pow(p.rigid ? 1e-9 : 0.0009, dt));
+    const cp = Math.cos(cine.pitch);
+    cine.look.set(cine.pos.x + Math.sin(yaw) * 40 * cp,
+                  cine.pos.y + Math.sin(cine.pitch) * 40,
+                  cine.pos.z + Math.cos(yaw) * 40 * cp);
+  }
+  camera.position.copy(cine.pos);
+  camera.lookAt(cine.look);
+}
+
+/* --- entering and leaving ------------------------------------------------- */
+function syncOrbitFromCamera(){
+  const t = cine.look.clone();
+  t.y = 0;
+  const d = camera.position.clone().sub(t);
+  const dist = clamp(d.length(), 40, 3000);
+  camGoal.target.copy(t); cam.target.copy(t);
+  camGoal.dist = cam.dist = dist;
+  const az = Math.atan2(d.z, d.x);
+  const el = clamp(Math.asin(clamp(d.y / dist, -1, 1)), 0.10, 1.45);
+  camGoal.az = cam.az = az; camGoal.el = cam.el = el;
+  applyCamera();
+}
+function startFlyby(){
+  if(state.mode === 'edit') setMode('view');
+  cine.mode = 'fly'; cine.shot = null; cine.recent.length = 0;
+  cine.pos.copy(camera.position);
+  cine.look.copy(cam.target);
+  document.body.classList.add('cinema');
+  $('cine').classList.add('show');
+  $('cineNext').style.display = '';
+  $('btnFly').classList.add('on');
+  flash();
+  nextShot(true);
+}
+function startFollow(subject, kind, label){
+  if(state.mode === 'edit') setMode('view');
+  cine.mode = 'follow'; cine.subject = subject; cine.kind = kind; cine.label = label;
+  cine.idx = kind === 'agent' ? agents.indexOf(subject) : -1;
+  // a tram opens as a chase shot behind and above the roof; a person is you,
+  // so that starts in first person. Scrolling moves between the two either way.
+  const tram = kind === 'tram';
+  cine.yaw = 0; cine.pitch = tram ? -0.16 : -0.06; cine.hiddenT = 0;
+  cine.back = tram ? 24 : 0;
+  cine.maxBack = tram ? 44 : 16;
+  const p = subjectPose();
+  cine.pos.set(p ? p.x : cam.target.x, (p ? p.eye : 2), p ? p.z : cam.target.z);
+  cine.look.copy(cine.pos).add(new THREE.Vector3(p ? p.hx * 20 : 20, 0, p ? p.hz * 20 : 0));
+  document.body.classList.add('cinema');
+  $('cine').classList.add('show');
+  $('cineNext').style.display = 'none';
+  $('cineKind').textContent = kind === 'tram' ? 'Riding the tram' : 'Following';
+  $('cineWhat').textContent = label;
+  flash();
+  toast(kind === 'tram' ? 'Drag to look around · scroll in for the cab · Esc to stop'
+                        : 'Drag to look around · scroll to pull back · Esc to stop');
+}
+function stopCinema(){
+  if(cine.mode === 'off') return;
+  cine.mode = 'off'; cine.subject = null; cine.shot = null;
+  document.body.classList.remove('cinema');
+  $('cine').classList.remove('show');
+  $('btnFly').classList.remove('on');
+  syncOrbitFromCamera();
+}
+
+/* Find the person or tram nearest the click, by distance to the camera ray —
+   the figures are far too small to hit reliably with an exact raycast. */
+function pickRider(e){
+  pointerNDC(e);
+  ray.setFromCamera(ndc, camera);
+  const o = ray.ray.origin, d = ray.ray.direction;
+  const nearestOn = (list, get, maxOff) => {
+    let best = null, bs = Infinity;
+    for(const it of list){
+      const p = get(it);
+      if(!p) continue;
+      const vx = p.x - o.x, vy = p.y - o.y, vz = p.z - o.z;
+      const t = vx * d.x + vy * d.y + vz * d.z;
+      if(t < 2 || t > 2600) continue;
+      const ox = vx - d.x * t, oy = vy - d.y * t, oz = vz - d.z * t;
+      const off = Math.hypot(ox, oy, oz);
+      const tol = maxOff * clamp(t / 260, 0.35, 4);
+      if(off > tol) continue;
+      const score = off / tol + t / 6000;
+      if(score < bs){ bs = score; best = it; }
+    }
+    return best;
+  };
+  const tram = nearestOn(trams, t => t.wx === undefined ? null : {x:t.wx, y:2.4, z:t.wz}, 7);
+  if(tram) return {subject: tram, kind: 'tram', label: 'Tram'};
+  const agent = nearestOn(agents,
+    a => (a.hidden || a.state === 'in') ? null : {x:a.x, y:1.0, z:a.z}, 2.2);
+  if(agent) return {subject: agent, kind: 'agent', label: agentLabel(agent)};
+  return null;
+}
+function agentLabel(a){
+  const where = a.purpose === 'work' ? 'off to work'
+              : a.purpose === 'leisure' ? 'out and about'
+              : a.purpose === 'sport' ? 'off to play'
+              : a.state === 'mill' ? 'taking the air' : 'heading home';
+  const how = a.mode === 'bike' ? ' by bike' : a.mode === 'transit' ? ' by transit' : ' on foot';
+  return 'A resident, ' + where + (a.state === 'go' ? how : '');
 }
 
 const matEdge = new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, opacity:0.5, depthWrite:false});
@@ -4371,7 +4772,7 @@ function buildEdge(){
 }
 
 function resizeWorld(g){
-  g = clamp(g | 0, 60, 300);
+  g = clamp(g | 0, 60, 640);
   if(g === GRID) return;
   GRID = g; HALF = g / 2; WORLD = g * CELL;
   SHORE = Math.round(WORLD * 0.30);
@@ -4421,6 +4822,7 @@ function buildPalette(){
           '<kbd>drag</kbd> move · <kbd>Del</kbd> remove · <kbd>Esc</kbd> cancel<br>' +
           '<kbd>left-drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>WASD</kbd> move · <kbd>F</kbd> reset<br>' +
           'Click a count in the top-left to spotlight just that kind of thing<br>' +
+          '<kbd>V</kbd> flyby tour · in View mode, click a person or tram to ride along<br>' +
           '<kbd>M</kbd> transit map · malls carry towers · forests carry paths<br>' +
           'Lines: place stops, then click stop to stop to link them (<kbd>Enter</kbd> finishes)<br><br>' +
           '<button class="btn" id="btnClear" style="width:100%">Clear the city</button></div>';
@@ -4695,6 +5097,7 @@ function applyProp(key, val){
   queueRebuildSoon();
 }
 function setMode(m){
+  if(m === 'edit' && cine.mode !== 'off') stopCinema();
   state.mode = m;
   document.querySelectorAll('#modeseg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   $('palette').classList.toggle('show', m === 'edit');
@@ -4725,6 +5128,9 @@ document.querySelectorAll('#speedseg button').forEach(b => b.addEventListener('c
 document.querySelectorAll('#densityseg button').forEach(b => b.addEventListener('click', () => setDensity(+b.dataset.dn)));
 $('pplsize').addEventListener('input', e => setPeopleSize(+e.target.value / 100));
 $('btnReset').addEventListener('click', () => resetCamera());
+$('btnFly').addEventListener('click', () => cine.mode === 'fly' ? stopCinema() : startFlyby());
+$('cineExit').addEventListener('click', () => stopCinema());
+$('cineNext').addEventListener('click', () => nextShot());
 $('statPop').addEventListener('click', () =>
   setFocus({label:'Residents', types: typesWhere(T => (T.res || 0) > 0)}));
 $('statJobs').addEventListener('click', () =>
@@ -4849,10 +5255,8 @@ function renderNewDialog(){
   const trimmed = CITY_SIZES[newOpts.size].fw[1] > nb;
   $('dpopv').textContent = 'about ' + fmtN(estPop(newOpts.size)) + ' residents' + (trimmed ? ' · trimmed to fit' : '');
   const lay = LAYOUTS[newOpts.lay];
-  const zones = lay.k === 'random' ? '' :
-    ' · ' + Math.max(1, Math.ceil(estPop(newOpts.size) / SPORT_ZONE_PER)) + ' sports complex' +
-    (Math.max(1, Math.ceil(estPop(newOpts.size) / SPORT_ZONE_PER)) === 1 ? '' : 'es');
-  $('dlayv').textContent = lay.d + zones;
+  $('dlayv').textContent = lay.d +
+    (lay.k === 'random' ? '' : ' Plus a tournament sports complex per 250k residents.');
   const wire = (id, key) => $(id).querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
     newOpts[key] = +b.dataset.v; renderNewDialog();
   }));
@@ -4932,18 +5336,16 @@ function maybe(p, a, b){ return rnd() < p ? a : b; }
 function fillSportZone(bx, bz, wB, hB){
   const gx0 = bx * PITCH, gz0 = bz * PITCH;
   const gx1 = gx0 + wB * PITCH - 1, gz1 = gz0 + hB * PITCH - 1;
+  // Size the parks to tile the site two-by-two — a uniform grid of full-size
+  // pitches is exactly what a tournament ground looks like from above.
+  const fit = span => clamp(Math.floor((span - 1) / 2), 4, 10);
+  const w = fit(wB * PITCH), d = fit(hB * PITCH);
   let made = 0;
-  for(let gz = gz0; gz < gz1 - 5; ){
-    let rowH = 0;
-    for(let gx = gx0; gx < gx1 - 5; ){
-      const w = 7 + Math.floor(rnd() * 4), d = 6 + Math.floor(rnd() * 4);
+  for(let gz = gz0; gz + d <= gz1; gz += d + 1){
+    for(let gx = gx0; gx + w <= gx1; gx += w + 1){
       const spec = {type:'sportspark', w, d, sport:0};
-      if(gx + w <= gx1 && gz + d <= gz1 && canPlace(spec, gx, gz, 0, -1)){
-        addObject(spec, gx, gz, 0);
-        made++; rowH = Math.max(rowH, d); gx += w + 1;
-      } else gx++;
+      if(canPlace(spec, gx, gz, 0, -1)){ addObject(spec, gx, gz, 0); made++; }
     }
-    gz += (rowH || 6) + 1;
   }
   // squeeze pitches and a meeting plaza into whatever is left over
   for(let att = 0; att < 60; att++){
@@ -4981,8 +5383,8 @@ const TIERS = ['small','mid','big','huge'];
 function hoodTier(drop){
   const s = state.size | 0, r = rnd();
   let i = s >= 3 ? (r < 0.40 ? 3 : r < 0.80 ? 2 : 1)
-        : s === 2 ? (r < 0.22 ? 3 : r < 0.66 ? 2 : 1)
-        : s === 1 ? (r < 0.35 ? 2 : r < 0.85 ? 1 : 0)
+        : s === 2 ? (r < 0.30 ? 3 : r < 0.72 ? 2 : 1)
+        : s === 1 ? (r < 0.12 ? 3 : r < 0.52 ? 2 : 1)
         :           (r < 0.2 ? 2 : r < 0.6 ? 1 : 0);
   i = clamp(i - (drop || 0), 0, 3);
   return TIERS[i];
@@ -5048,6 +5450,15 @@ function recipeBizOrg(){
   if(rnd() < 0.40) r.push(rnd() < 0.5 ? plazaS() : parkS());
   return r;
 }
+/* The green belt that separates the two: woodland, parkland, somewhere to walk.
+   Nothing to live in and nothing to work in — that is the whole point of it. */
+function recipeBuffer(){
+  const r = rnd();
+  if(r < 0.44) return [{type:'forest', w:5, d:5}];
+  if(r < 0.62) return [{type:'forest', w:4, d:4}, parkS()];
+  if(r < 0.82) return [parkS(), maybe(0.55, parkS(), plazaS())];
+  return [sportsS(), maybe(0.5, parkS(), plazaS())];
+}
 /* The residential side — homes and everything that serves them. */
 function recipeHoodOrg(){
   const r = [pick([apts(hoodTier()), apts(hoodTier()), apts(hoodTier()), apts(hoodTier()),
@@ -5103,8 +5514,10 @@ function generateCity(seed, sizeIdx, layout){
 
   /* ---- 2. business centres. Standard puts them near the water; Organized
      zones them together well back from it, so the shore stays residential. ---- */
-  const nBiz = LAY === 'organized' ? Math.max(1, SZ.biz)
-             : SZ.biz === 1 ? 1 : SZ.biz === 3 ? (rnd() < 0.5 ? 2 : 3) : (rnd() < 0.45 ? 1 : 2);
+  // Organized districts carry a green belt each, so a small town gets one big
+  // district rather than several that would eat the whole footprint.
+  const nBiz = LAY === 'organized' ? clamp(Math.round(fw * fh / 220), 1, SZ.biz)
+             : SZ.biz <= 1 ? 1 : SZ.biz >= 3 ? (rnd() < 0.5 ? 2 : 3) : (rnd() < 0.45 ? 1 : 2);
   const biz = [];
   for(let i = 0; i < nBiz; i++){
     for(let att = 0; att < 200; att++){
@@ -5122,13 +5535,27 @@ function generateCity(seed, sizeIdx, layout){
     }
   }
   const RB = LAY === 'organized' ? 2.6 : 1.9;
+  // Blocks of green belt around the office district. Scaled to the footprint —
+  // a fixed belt would swallow half of a small city.
+  const BUFFER = clamp(Math.min(fw, fh) * 0.15, 1.3, 3.0);
   for(const [sx, sz] of biz){
     for(const k of [...zone.keys()]){
       const c = k.split(',');
       const d = Math.hypot(+c[0] - sx, (+c[1] - sz) * (LAY === 'organized' ? 0.85 : 1.15));
       if(d <= RB) zone.set(k, 'biz');
-      // Organized keeps a hard edge — no blended ring of half-offices, half-flats
-      else if(LAY !== 'organized' && d <= RB + 1.25 && zone.get(k) === 'hood') zone.set(k, 'mixed');
+      // Organized keeps the two apart with woodland and parkland rather than
+      // a blended ring of half-offices, half-flats
+      else if(LAY === 'organized'){
+        if(d <= RB + BUFFER && zone.get(k) === 'hood') zone.set(k, 'buffer');
+      }
+      else if(d <= RB + 1.25 && zone.get(k) === 'hood') zone.set(k, 'mixed');
+    }
+  }
+  // a second pass, so one centre's offices never sit inside another's green belt
+  if(LAY === 'organized'){
+    for(const [sx, sz] of biz) for(const k of [...zone.keys()]){
+      const c = k.split(',');
+      if(Math.hypot(+c[0] - sx, (+c[1] - sz) * 0.85) <= RB) zone.set(k, 'biz');
     }
   }
 
@@ -5175,40 +5602,65 @@ function generateCity(seed, sizeIdx, layout){
   /* ---- 3c. tournament-grade sports complexes: several large sports parks
      side by side, on the fringe of town. One per 250k residents, at least one.
      Reserved before anything else is placed so nothing else creeps in. ---- */
-  const ZW = 4, ZH = 3;                       // blocks per complex
-  const sportZones = [];
   if(LAY !== 'random'){
+    /* per is calibrated against what these footprints actually build out to. */
     const estRes = fw * fh * SZ.per;
     const want = Math.max(1, Math.ceil(estRes / SPORT_ZONE_PER));
-    const cands = [];
-    for(const k of zone.keys()){
-      const c = k.split(','); const bx = +c[0], bz = +c[1];
-      let ok = true;
-      for(let i = 0; i < ZW && ok; i++) for(let j = 0; j < ZH; j++){
-        const z = zone.get(BK(bx + i, bz + j));
-        if(z !== 'hood' && z !== 'mixed'){ ok = false; break; }
-        if(blockLandFrac(bx + i, bz + j) < 0.93){ ok = false; break; }
+    /* Claim the biggest sites available first, then top up with smaller ones if
+       the quota isn't met. A metropolis gets several full-size complexes; a
+       village gets one modest one, but it always gets one. */
+    const claim = (zw, zh, limit) => {
+      const cands = [];
+      for(const k of zone.keys()){
+        const c = k.split(','); const bx = +c[0], bz = +c[1];
+        let ok = true;
+        for(let i = 0; i < zw && ok; i++) for(let j = 0; j < zh; j++){
+          const z = zone.get(BK(bx + i, bz + j));
+          if(z !== 'hood' && z !== 'mixed'){ ok = false; break; }
+          if(blockLandFrac(bx + i, bz + j) < 0.93){ ok = false; break; }
+        }
+        if(!ok) continue;
+        // sports parks span streets, so they need room well back from the shore
+        const inland = (shoreRow[bx] || 0) - (bz + zh - 1);
+        if(inland < 1) continue;
+        // out towards a flank, and away from the water
+        const flank = Math.min(bx - bx0, bx0 + fw - 1 - (bx + zw - 1));
+        cands.push([bx, bz, flank - inland * 0.6]);
       }
-      if(!ok) continue;
-      // prefer the inland fringe and the flanks — a complex belongs on the edge
-      const edge = Math.min(bx - bx0, bx0 + fw - 1 - (bx + ZW - 1),
-                            (shoreRow[bx] || 0) - (bz + ZH - 1));
-      cands.push([bx, bz, edge]);
-    }
-    cands.sort((a, b) => a[2] - b[2]);
-    for(const [bx, bz] of cands){
-      if(sportZones.length >= want) break;
-      if(sportZones.some(s => Math.abs(s[0] - bx) < ZW + 1 && Math.abs(s[1] - bz) < ZH + 1)) continue;
-      let free = true;
-      for(let i = 0; i < ZW && free; i++) for(let j = 0; j < ZH; j++){
-        const z = zone.get(BK(bx + i, bz + j));
-        if(z !== 'hood' && z !== 'mixed'){ free = false; break; }
+      cands.sort((a, b) => a[2] - b[2]);
+      const apart = Math.max(zw, zh) * 2.2;    // keep complexes in different quarters
+      const out = [];
+      for(const [bx, bz] of cands){
+        if(out.length >= limit) break;
+        if(out.some(s => Math.hypot(s[0] - bx, s[1] - bz) < apart)) continue;
+        let free = true;
+        for(let i = 0; i < zw && free; i++) for(let j = 0; j < zh; j++)
+          if(zone.get(BK(bx + i, bz + j)) === 'sportzone'){ free = false; break; }
+        if(!free) continue;
+        for(let i = 0; i < zw; i++) for(let j = 0; j < zh; j++) zone.set(BK(bx + i, bz + j), 'sportzone');
+        out.push([bx, bz]);
       }
-      if(!free) continue;
-      for(let i = 0; i < ZW; i++) for(let j = 0; j < ZH; j++) zone.set(BK(bx + i, bz + j), 'sportzone');
-      sportZones.push([bx, bz]);
+      for(const [bx, bz] of out) fillSportZone(bx, bz, zw, zh);
+      return out.length;
+    };
+    let done = 0;
+    for(const [zw, zh] of [[4,3],[3,3],[3,2],[2,2]]){
+      if(done >= want) break;
+      done += claim(zw, zh, want - done);
     }
-    for(const [bx, bz] of sportZones) fillSportZone(bx, bz, ZW, ZH);
+    if(!done){
+      // nowhere inside the city — put one on open ground just beyond the streets
+      const rws = []; for(const k of zone.keys()) rws.push(+k.split(',')[1]);
+      const zLo = Math.min(...rws);
+      for(let att = 0; att < 250 && !done; att++){
+        const bx = clamp(bx0 + Math.floor(rnd() * Math.max(1, fw - 3)), 1, NB - 4);
+        const bz = clamp(zLo - 2 - Math.floor(rnd() * 3), 1, NB - 3);
+        let ok = true;
+        for(let i = 0; i < 3 && ok; i++) for(let j = 0; j < 2; j++)
+          if(blockLandFrac(bx + i, bz + j) < 0.93){ ok = false; break; }
+        if(ok && fillSportZone(bx, bz, 3, 2) > 0) done = 1;
+      }
+    }
   }
 
   /* ---- 4. waterfront promenade ---- */
@@ -5285,7 +5737,7 @@ function generateCity(seed, sizeIdx, layout){
       if(!placeSpanning(spec, bx, bz)) continue;
       made++;
       const mall = state.objects[state.objects.length - 1];
-      if(rnd() < 0.75){
+      if(LAY !== 'organized' && rnd() < 0.75){       // no flats inside the office zone
         for(let k = 0; k < 1 + Math.floor(rnd() * 2); k++){
           const tw = 2 + Math.floor(rnd() * 2);
           const tower = {type:'apartments', w:tw, d:tw, stories:14 + Math.floor(rnd() * 26)};
@@ -5312,9 +5764,10 @@ function generateCity(seed, sizeIdx, layout){
     for(let att = 0; att < 300 && made < want; att++){
       let bx, bz;
       if(LAY === 'organized' && biz.length){
+        // out beyond the office district and its green belt, on open ground
         const b = biz[Math.floor(rnd() * biz.length)];
-        bx = clamp(b[0] + Math.floor(rnd() * 7) - 3, 1, NB - 2);
-        bz = clamp(b[1] - 2 - Math.floor(rnd() * 3), 1, NB - 2);   // further inland still
+        bx = clamp(b[0] + Math.floor(rnd() * 9) - 4, 1, NB - 2);
+        bz = clamp(Math.min(b[1], zLo) - 2 - Math.floor(rnd() * 4), 1, NB - 2);
       } else {
         bx = clamp(bandX + Math.floor(rnd() * 4) - 2, 1, NB - 2);
         bz = zLo + Math.floor(rnd() * Math.max(1, zHi - zLo));
@@ -5361,8 +5814,10 @@ function generateCity(seed, sizeIdx, layout){
     }
     if(z === 'sportzone') continue;                     // already laid out
     if(LAY === 'organized'){
-      // a hard split: offices and light industry on one side, homes on the other
+      // a hard split: offices and light industry on one side, homes on the other,
+      // with a belt of woodland and parkland holding them apart
       if(z === 'biz'){ fillBlock(bx, bz, recipeBizOrg()); continue; }
+      if(z === 'buffer'){ fillBlock(bx, bz, recipeBuffer()); continue; }
       if(frac < 0.85){ fillBlock(bx, bz, recipeShore()); continue; }
       if(rnd() < 0.15){ fillBlock(bx, bz, recipeGreen()); continue; }
       fillBlock(bx, bz, recipeHoodOrg());
