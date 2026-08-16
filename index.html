@@ -2489,6 +2489,49 @@ function disc(list, r, x, y, z, color, seg){
 }
 
 const TRAM_LAT = 2.35;
+const TRUNK_LAT = 1.30;          // rails on an arterial, pulled in to make room
+/* Which cells carry an arterial, so the track laid along them knows to run a
+   narrow bed rather than the usual 8.2 m one that fills the whole street. */
+const trunkCells = new Set();
+function markTrunkCells(){
+  trunkCells.clear();
+  for(const o of state.objects) if(o.trunk) trunkCells.add(o.gx + ',' + o.gz);
+}
+/* A full arterial corridor in nine metres: dual track down the centre channel,
+   a protected bike lane each side of it, and a lamp-lit paved promenade on the
+   kerbs. Everything is pulled in tight — this is the one street in the city
+   asked to carry three modes at once. */
+function trunkCell(L, o, x, z, doX, doZ){
+  const KERB = [0.780, 0.755, 0.710], LINE = [0.92, 0.95, 0.93];
+  const bed = shade(TRACK_GRASS, 0.94);
+  const run = (across) => {
+    // across(width, offset, y, colour) lays a strip along the corridor
+    if(doX) slab(L, CELL + 0.05, across[0], x, across[2], z + across[1], across[3]);
+    else    slab(L, across[0], CELL + 0.05, x + across[1], across[2], z, across[3]);
+  };
+  run([5.0, 0, 0.10, bed]);                                  // the tram channel
+  run([1.4, 0, 0.13, shade(bed, 1.14)]);
+  for(const sd of [-1, 1]){
+    run([1.9, sd * 3.2, 0.13, BIKE]);                        // protected lanes
+    run([0.30, sd * 2.2, 0.15, KERB]);                       // the separator kerb
+    run([1.4, sd * 4.3, 0.14, KERB]);                        // the promenade
+  }
+  for(let i = 0; i < 3; i++){
+    const t = -CELL / 2 + (i + 0.5) * CELL / 3;
+    for(const sd of [-1, 1]){
+      if(doX) box(L, 1.4, 0.03, 0.20, x + t, 0.17, z + sd * 3.2, LINE, 0);
+      else    box(L, 0.20, 0.03, 1.4, x + sd * 3.2, 0.17, z + t, LINE, 0);
+    }
+  }
+  // lamps and street trees on the kerbs, closer together than an ordinary path
+  const side = ((o.gx * 3 + o.gz) & 2) ? 1 : -1;
+  const px = doX ? x : x + side * 4.3, pz = doX ? z + side * 4.3 : z;
+  box(L, 0.22, 4.8, 0.22, px, 2.4, pz, [0.34, 0.36, 0.38], 0);
+  box(L, 0.8, 0.26, 0.8, px, 4.9, pz, [0.44, 0.46, 0.48], 0);
+  lamps.push({x: px, z: pz});
+  if(((o.gx * 5 + o.gz * 3) & 3) === 0)
+    addTree(doX ? x + 2.5 : x - side * 4.3, 0.03, doX ? z - side * 4.3 : z + 2.5, 0.85 + rnd() * 0.3);
+}
 const PAVE   = [0.760, 0.735, 0.690];
 const PAVE2  = [0.815, 0.790, 0.740];
 const BIKE   = [0.235, 0.520, 0.470];
@@ -2886,6 +2929,16 @@ function tramCell(L, gx, gz, doX, doZ){
   const x = wx(gx), z = wz(gz);
   const h = ((gx * 31 + gz * 17) % 7) / 7;
   const bed = shade(TRACK_GRASS, 0.9 + h * 0.22);
+  /* On an arterial the corridor has already laid its own bed, lanes and kerbs;
+     all that is wanted here is the rails, set narrow. Draw the usual 8.2 m bed
+     over the top and it swallows the bike lanes and the promenade whole. */
+  if(trunkCells.has(gx + ',' + gz)){
+    for(const t of [-TRUNK_LAT, TRUNK_LAT]){
+      if(doX) for(const r of [-0.62, 0.62]) box(L, CELL + 0.1, 0.20, 0.24, x, 0.20, z + t + r, RAIL_STEEL, 0);
+      if(doZ) for(const r of [-0.62, 0.62]) box(L, 0.24, 0.20, CELL + 0.1, x + t + r, 0.20, z, RAIL_STEEL, 0);
+    }
+    return;
+  }
   if(doX){
     slab(L, CELL + 0.1, 8.2, x, 0.10, z, bed);
     slab(L, CELL + 0.1, 1.5, x, 0.13, z, shade(bed, 1.14));
@@ -2987,6 +3040,7 @@ function buildTransit(o, L){
       break;
     }
     case 'bike': {
+      if(o.trunk){ trunkCell(L, o, x, z, doX, doZ); break; }
       if(doX) slab(L, CELL, 4.4, x, 0.13, z, BIKE);
       if(doZ) slab(L, 4.4, CELL, x, 0.13, z, BIKE);
       if(doX) for(let i=0;i<3;i++) box(L, 1.5, 0.03, 0.22, x - CELL/2 + (i+0.5)*CELL/3, 0.16, z, [0.9,0.95,0.92], 0);
@@ -3821,6 +3875,7 @@ function rebuildCity(){
     for(let i = m.l; i < lamps.length; i++) lamps[i].y = (lamps[i].y || 0) + dy;
   };
   buildGraph();
+  markTrunkCells();
   planTreeBudget();
   rng = mulberry32(state.seed * 7919 + 13);
   curFocus = 1;                       // streets and track stay lit under a focus
@@ -3983,12 +4038,16 @@ const MODES = ['walk', 'bike', 'transit'];
    These numbers are routing *preferences*, not real speeds — cost is length
    divided by the number, so a higher number makes a corridor more attractive.
    Walkers and cyclists actively avoid tram track: it's a rail bed, not a footway. */
-const MODE_SPEED = {walk:   {walk:1, park:1.60, path:1.85, bike:1.45, tram:0.45, subway:0.02},
-                    bike:   {walk:1, park:1.35, path:1.30, bike:2.60, tram:0.50, subway:0.02},
-                    transit:{walk:1, park:1.00, path:1.05, bike:1.60, tram:4.20, subway:9},
+/* `trunk` is an arterial corridor — tram, bike lane and promenade on one
+   street. Everyone prefers it: someone on foot gets the promenade, a cyclist
+   gets a protected lane, and a long trip gets the tram. It is the one route
+   type that is better than a plain street for every mode at once. */
+const MODE_SPEED = {walk:   {walk:1, park:1.60, path:1.85, bike:1.45, tram:0.45, trunk:1.95, subway:0.02},
+                    bike:   {walk:1, park:1.35, path:1.30, bike:2.60, tram:0.50, trunk:3.20, subway:0.02},
+                    transit:{walk:1, park:1.00, path:1.05, bike:1.60, tram:4.20, trunk:5.40, subway:9},
                     /* laying track: shortest street route, no preferences */
-                    rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, subway:0.02}};
-const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, subway:7.0};
+                    rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, trunk:1.00, subway:0.02}};
+const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, trunk:3.6, subway:7.0};
 /* How fast an agent *looks* like it's moving. Pace is a property of the person
    now — a cyclist carries their own speed — so this only has to handle the
    subway, where riders vanish into the tunnel and reappear at the far station. */
@@ -4167,12 +4226,17 @@ function buildGraph(){
     G.tramPaths.push({c: L.c | 0, li, nodes,
                       pts: pts.map(w => ({x: wx(w.gx), z: wz(w.gz), stop: w.stop, uid: w.uid})),
                       cells: [...cells.values()]});
+    /* Track along an arterial is a `trunk` edge rather than a plain tram edge.
+       Note this has to be decided here and not from what covers the cells: a
+       modern city has no tram *objects* at all — track is implied by the line —
+       so counting nets on the ground would never see a tram anywhere. */
+    const tk = L.trunk ? 'trunk' : 'tram';
     for(let i = 0; i < nodes.length - 1; i++){
       const a = nodes[i], b = nodes[i + 1];
       if(a === b) continue;
       const len = Math.hypot(G.x[a] - G.x[b], G.z[a] - G.z[b]);
-      G.adj[a].push({to:b, len, kind:'tram'});
-      G.adj[b].push({to:a, len, kind:'tram'});
+      G.adj[a].push({to:b, len, kind:tk});
+      G.adj[b].push({to:a, len, kind:tk});
     }
   });
 
@@ -4707,7 +4771,7 @@ function desiredPlace(a, h){
 function tramRun(pk){
   let bB = -1, bE = -2, b = -1;
   for(let i = 0; i <= pk.length; i++){
-    if(i < pk.length && pk[i] === 'tram'){ if(b < 0) b = i; continue; }
+    if(i < pk.length && (pk[i] === 'tram' || pk[i] === 'trunk')){ if(b < 0) b = i; continue; }
     if(b >= 0 && (i - 1) - b > bE - bB){ bB = b; bE = i - 1; }
     b = -1;
   }
@@ -4834,7 +4898,7 @@ const AGENT_BASE = 0.73;             // metres per second at 1x — an unhurried
    cyclists keep to the middle of their own lane. */
 function laneOffset(a, kind){
   const s = a.off < 0 ? -1 : 1;
-  if(kind === 'tram') return s * (3.75 + Math.abs(a.off) * 0.22);   // keep off the rails
+  if(kind === 'tram' || kind === 'trunk') return s * (3.75 + Math.abs(a.off) * 0.22);   // keep off the rails
   if(kind === 'bike') return a.mode === 'bike' ? a.off * 0.34 : s * (2.9 + Math.abs(a.off) * 0.28);
   return a.off * 0.6;
 }
@@ -6499,10 +6563,14 @@ function serialise(){
     v: 2, seed: state.seed, hour: state.hour, grid: GRID,
     ppl: {size: state.pplSize, den: state.density}, layout: state.layout, dens: state.dens,
     camera: {t:[cam.target.x, cam.target.y, cam.target.z], d:cam.dist, a:cam.az, e:cam.el},
-    lines: state.lines.map(L => ({m:modeOf(L), c:L.c | 0, s:L.stops.slice()})),
+    /* `tr` marks the arterials, on both the cells and the tram lines that run
+       down them. Leave it out and a saved city reloads with its corridors as
+       ordinary bike lanes and its trunk routing gone — which is invisible until
+       somebody wonders why a reloaded city feels slower to get around. */
+    lines: state.lines.map(L => ({m:modeOf(L), c:L.c | 0, s:L.stops.slice(), tr:L.trunk ? 1 : 0})),
     objects: state.objects.map(o => ({t:o.type, x:o.gx, z:o.gz, r:o.rot, s:o.seed, u:o.uid,
                                       st:o.stories, w:o.w, d:o.d, ti:o.tint,
-                                      sy:o.style, sp:o.sport, lv:o.lvl})),
+                                      sy:o.style, sp:o.sport, lv:o.lvl, tr:o.trunk ? 1 : 0})),
   };
 }
 function applyCity(d){
@@ -6531,14 +6599,14 @@ function applyCity(d){
       w: o.w || (L && L.w) || T.w,
       d: o.d || (L && L.d) || T.d,
       stories: o.st || (L && L.stories) || T.stories || 0,
-      style: o.sy | 0, sport: o.sp | 0, lvl: o.lv | 0,
+      style: o.sy | 0, sport: o.sp | 0, lvl: o.lv | 0, trunk: o.tr | 0,
       tint: o.ti !== undefined ? o.ti : (T.use === 'home' ? 0 : 6),
     };
   }).filter(Boolean);
   uidSeq = 1;
   for(const o of state.objects){ if(!o.uid) o.uid = uidSeq++; else uidSeq = Math.max(uidSeq, o.uid + 1); }
   state.lines = Array.isArray(d.lines)
-    ? d.lines.map(L => ({mode: L.m === 'tram' ? 'tram' : 'subway', c: L.c | 0,
+    ? d.lines.map(L => ({mode: L.m === 'tram' ? 'tram' : 'subway', c: L.c | 0, trunk: L.tr | 0,
                          stops: (L.s || []).filter(u => typeof u === 'number')}))
     : [];
   drawLine = -1;
@@ -7411,6 +7479,21 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
   const zFrom = bz0 * PITCH - 2, zTo = (bz0 + gh * HOOD_PITCH) * PITCH + 2;
   const parkI = [ci - 1, ci + CP - 1], parkJ = [cj - 1, cj + CP - 1];
   const tramLines = [];
+  const NETB = {gFrom: from, gTo: to, zFrom, zTo, size: state.size, taken: new Set()};
+
+  /* The arterials run the separating strips, never through a neighbourhood and
+     never across the central park — but they are the same corridor as anywhere
+     else: track down the middle, protected bike lane beside it, promenade on
+     the kerbs. */
+  const gapsX = [], gapsZ = [];
+  for(let j = 0; j < gh; j++) if(j < parkJ[0] || j > parkJ[1]) gapsX.push(lineOf(bz0 + gapBlock(j)));
+  for(let i = 0; i < gw; i++) if(i < parkI[0] || i > parkI[1]) gapsZ.push(lineOf(bx0 + gapBlock(i)));
+  const n = trunkCount(state.size);
+  for(const gz of spreadLines(gapsX, n)){ NETB.taken.add('x' + gz); layTrunk(gz, 'x', from, to, tramLines); }
+  for(const gx of spreadLines(gapsZ, n)){ NETB.taken.add('z' + gx); layTrunk(gx, 'z', zFrom, zTo, tramLines); }
+
+  /* Feeder trams on the remaining strips, so every neighbourhood has a couple
+     of stops of its own and is one gap from the trunk network. */
   const runLine = (fixed, axis, a, b, everyN) => {
     const stops = [];
     for(let i = 0; i < NX; i++){
@@ -7424,35 +7507,220 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
     }
     if(stops.length > 1) tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops});
   };
-  /* A tram along every separating strip that doesn't cross the park, so no
-     neighbourhood is more than one gap from a stop, and bike routes on the
-     strips between them. */
-  for(let j = 0; j < gh; j++){
-    if(j >= parkJ[0] && j <= parkJ[1]) continue;                // keep clear of the park
-    runLine(lineOf(bz0 + gapBlock(j)), 'x', from, to, 3);
-  }
-  for(let i = 0; i < gw; i++){
-    if(i >= parkI[0] && i <= parkI[1]) continue;
-    if(i % 2 === 1) runLine(lineOf(bx0 + gapBlock(i)), 'z', zFrom, zTo, 3);
-  }
-  for(let j = 0; j < gh; j++){
-    if(j >= parkJ[0] && j <= parkJ[1]) continue;
-    if(j % 2 === 1) placeLine('bike', lineOf(bz0 + gapBlock(j)), 'x', from, to);
-  }
-  for(let i = 0; i < gw; i++){
-    if(i >= parkI[0] && i <= parkI[1]) continue;
-    placeLine('bike', lineOf(bx0 + gapBlock(i)), 'z', zFrom, zTo);
-  }
-  // a subway stop at every business district and every third neighbourhood
-  let n = 0;
+  for(const g of gapsX) if(!NETB.taken.has('x' + g)) runLine(g, 'x', from, to, 3);
+  for(const g of gapsZ) if(!NETB.taken.has('z' + g)) runLine(g, 'z', zFrom, zTo, 3);
+
+  /* The bike lattice covers the neighbourhoods themselves — trams stay out of
+     them, but a bike path is exactly what a neighbourhood wants — plus a route
+     right round the outside of the city, off the water. */
+  layLattice(NETB);
+  layPerimeter(NETB);
+
+  // subway: every business district, every third neighbourhood, and a spread
+  // of stops across the footprint so the outer districts reach the middle
+  const hubs = [];
+  let m = 0;
   for(const [k, r] of role){
     if(r === 'park') continue;
     const [i, j] = k.split(',').map(Number);
-    if(r !== 'biz' && (n++ % 3)) continue;
-    const gx = lineOf(bx0 + i * HOOD_PITCH + 2), gz = lineOf(bz0 + j * HOOD_PITCH + 2);
-    if(canPlace('subway', gx, gz, 0, -1)) addObject('subway', gx, gz, 0);
+    if(r !== 'biz' && r !== 'shops' && (m++ % 3)) continue;
+    hubs.push([lineOf(bx0 + i * HOOD_PITCH + 2), lineOf(bz0 + j * HOOD_PITCH + 2)]);
   }
+  NETB.hubs = hubs;
+  laySubway(NETB);
   state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(tramLines);
+}
+
+/* ============================================================================
+   13b. THE TRANSIT SKELETON
+   Every layout gets the same network, built by the same code. Whether you can
+   get from a given doorstep to the rest of the city should not depend on which
+   street pattern the city happens to have been generated with.
+
+   The standard the network is built to: every buildable cell is within two
+   blocks — about 108 m — of a tram stop, a subway stop or a bike path.
+   ========================================================================== */
+const NET_REACH = 2 * PITCH * CELL;     // metres: the two-block access standard
+
+/* Arterials each way, by city size: a town gets one of each, a metropolis four. */
+const trunkCount = size => clamp(1 + (size | 0), 1, 4);
+
+/* Evenly spaced picks from a list, ends inset so an arterial doesn't land on
+   the very edge of the footprint where it would only serve one side. */
+function spreadLines(list, n){
+  if(!list.length || n < 1) return [];
+  if(list.length <= n) return list.slice();
+  const out = [];
+  for(let i = 0; i < n; i++) out.push(list[Math.round((i + 0.5) * (list.length - 1) / n)]);
+  return [...new Set(out)];
+}
+
+/* One arterial corridor. The point of it is that all three nets share a single
+   street: dual tram track down the centre channel, a protected bike lane
+   flanking it, and a lamp-lit promenade on the kerbs. Three parallel routes on
+   three different streets is not the same thing — the graph recognises the
+   combination as a trunk and routes long trips down it by preference. */
+function layTrunk(fixed, axis, from, to, tramLines){
+  const stops = [];
+  let laid = 0;
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g < from || g > to) continue;
+    const gx = axis === 'x' ? g : fixed, gz = axis === 'x' ? fixed : g;
+    if(i % 2 === 0 && canPlace('tramstop', gx, gz, axis === 'x' ? 0 : 1, -1)){
+      addObject('tramstop', gx, gz, axis === 'x' ? 0 : 1);
+      stops.push(state.objects[state.objects.length - 1].uid);
+    }
+  }
+  /* One object per cell, flagged. Two transit objects cannot share a cell, so
+     a corridor cannot be built by laying a bike path and a promenade on top of
+     each other — the second one simply fails to place and you get a bike lane
+     that you have called a corridor. It is one bike object that knows it is an
+     arterial and draws the whole nine metres: track, lanes and kerbs. */
+  for(let g = Math.max(1, from); g <= Math.min(GRID - 2, to); g++){
+    const gx = axis === 'x' ? g : fixed, gz = axis === 'x' ? fixed : g;
+    if(!canPlace('bike', gx, gz, 0, -1)) continue;
+    addObject('bike', gx, gz, 0);
+    state.objects[state.objects.length - 1].trunk = 1;
+    laid++;
+  }
+  if(stops.length > 1 && tramLines)
+    tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops, trunk:1});
+  return laid;
+}
+
+/* The lattice: a bike path every other street line, both ways, so nowhere is
+   more than one block from one. Skips whatever the arterials already carry. */
+function layLattice(o){
+  let n = 0;
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    /* Every third street line, both ways. That is 162 m between lines, so the
+       furthest any doorstep can be from one is 81 m — inside the two-block
+       standard — at two thirds the number of objects a spacing of two costs. */
+    if(g >= o.zFrom && g <= o.zTo && !o.taken.has('x' + g) && i % 3 === 0)
+      n += placeLine('bike', g, 'x', o.gFrom, o.gTo);
+    if(g >= o.gFrom && g <= o.gTo && !o.taken.has('z' + g) && i % 3 === 2)
+      n += placeLine('bike', g, 'z', o.zFrom, o.zTo);
+  }
+  return n;
+}
+
+/* A bike route right round the outside of the built-up area — but not along
+   the water, where the promenade already runs and a cycle lane would only get
+   between people and the view. */
+function layPerimeter(o){
+  const xs = [], zs = [];
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g >= o.gFrom && g <= o.gTo) xs.push(g);
+    if(g >= o.zFrom && g <= o.zTo) zs.push(g);
+  }
+  if(xs.length < 2 || zs.length < 2) return 0;
+  let n = 0;
+  n += placeLine('bike', zs[0], 'x', xs[0], xs[xs.length - 1]);          // the inland edge
+  n += placeLine('bike', xs[0], 'z', zs[0], zs[zs.length - 1]);          // and the two flanks
+  n += placeLine('bike', xs[xs.length - 1], 'z', zs[0], zs[zs.length - 1]);
+  return n;                                                             // seaward side: left open
+}
+
+/* Subway. Stops go on the hubs the caller nominates — business centres, civic
+   parks, the waterfront — and then on a spread of lines across the footprint so
+   the outer neighbourhoods reach the middle without three changes. */
+function laySubway(o){
+  const made = [];
+  /* Try the spot, then the nodes around it. By the time the subway goes in the
+     bike lattice already holds every third street line, so a station aimed at
+     an exact intersection lands on a cycle path more often than not and simply
+     never gets built — a town ends up with no underground at all. */
+  const put = (gx, gz) => {
+    for(const [dx, dz] of [[0,0],[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+      const px = gx + dx * PITCH, pz = gz + dz * PITCH;
+      if(!canPlace('subway', px, pz, 0, -1)) continue;
+      addObject('subway', px, pz, 0);
+      made.push(state.objects[state.objects.length - 1]);
+      return;
+    }
+  };
+  for(const [gx, gz] of (o.hubs || [])) put(gx, gz);
+  const xs = [], zs = [];
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g >= o.gFrom && g <= o.gTo) xs.push(g);
+    if(g >= o.zFrom && g <= o.zTo) zs.push(g);
+  }
+  const routes = clamp(1 + Math.floor((o.size | 0) / 1.5), 1, 3);
+  for(const gz of spreadLines(zs, routes))
+    for(const gx of spreadLines(xs, 3 + (o.size | 0))) put(gx, gz);
+  return made;
+}
+
+/* Build the whole thing. Called by every layout. */
+function buildNetwork(o){
+  const tramLines = o.tramLines || [];
+  o.taken = o.taken || new Set();
+  const xs = [], zs = [];
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g >= o.gFrom && g <= o.gTo) xs.push(g);
+    if(g >= o.zFrom && g <= o.zTo) zs.push(g);
+  }
+  const n = trunkCount(o.size);
+  for(const gz of spreadLines(zs, n)){ o.taken.add('x' + gz); layTrunk(gz, 'x', o.gFrom, o.gTo, tramLines); }
+  for(const gx of spreadLines(xs, n)){ o.taken.add('z' + gx); layTrunk(gx, 'z', o.zFrom, o.zTo, tramLines); }
+  return tramLines;
+}
+
+/* Feeder tram loops off the arterials, so an outlying neighbourhood reaches the
+   trunk network without a long walk first. */
+function layFeeders(o, tramLines){
+  const add = (fixed, axis, from, to) => {
+    const stops = [];
+    for(let i = 0; i < NX; i++){
+      const g = nodeGX(i);
+      if(g < from || g > to || i % 2) continue;
+      const gx = axis === 'x' ? g : fixed, gz = axis === 'x' ? fixed : g;
+      const srot = axis === 'x' ? 0 : 1;
+      if(!canPlace('tramstop', gx, gz, srot, -1)) continue;
+      addObject('tramstop', gx, gz, srot);
+      stops.push(state.objects[state.objects.length - 1].uid);
+    }
+    if(stops.length > 1)
+      tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops});
+  };
+  const xs = [], zs = [];
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g >= o.gFrom && g <= o.gTo && !o.taken.has('z' + g)) xs.push(g);
+    if(g >= o.zFrom && g <= o.zTo && !o.taken.has('x' + g)) zs.push(g);
+  }
+  for(const gz of spreadLines(zs, 1 + (o.size | 0))) add(gz, 'x', o.gFrom, o.gTo);
+  for(const gx of spreadLines(xs, (o.size | 0))) add(gx, 'z', o.zFrom, o.zTo);
+}
+
+/* What the network actually achieves, which is the only thing worth asserting:
+   the share of buildable ground within the access standard of a stop or a bike
+   path. Counting the lines laid tells you nothing — a line that could not be
+   placed because a superblock was in the way still counts as a line. */
+function netCoverage(){
+  const pts = [];
+  for(const o of state.objects){
+    const T = TYPES[o.type];
+    if(T.kind !== 'transit') continue;
+    if(T.net === 'bike' || o.type === 'tramstop' || o.type === 'subway') pts.push([wx(o.gx), wz(o.gz)]);
+  }
+  if(!pts.length) return {covered: 0, total: 0, frac: 0};
+  let covered = 0, total = 0;
+  for(const b of state.objects){
+    const T = TYPES[b.type];
+    if(T.kind !== 'building' && T.kind !== 'landmark') continue;
+    const c = objCentre(b);
+    total++;
+    for(const [px, pz] of pts)
+      if(Math.abs(px - c.x) <= NET_REACH && Math.abs(pz - c.z) <= NET_REACH &&
+         Math.hypot(px - c.x, pz - c.z) <= NET_REACH){ covered++; break; }
+  }
+  return {covered, total, frac: total ? covered / total : 0};
 }
 
 function generateCity(seed, sizeIdx, layout, density){
@@ -7687,6 +7955,21 @@ function generateCity(seed, sizeIdx, layout, density){
     }
   }
 
+  /* ---- 5a. the arterials, before anything big claims the ground ----
+     Transit is the skeleton, so the corridors are laid first and the stadiums,
+     malls and cathedrals route around them. Only the arterials go this early:
+     the full bike lattice would take half the street lines in the city and
+     leave nowhere for a superblock at all. */
+  const NETB = (() => {
+    const rows = [];
+    for(const k of zone.keys()) rows.push(+k.split(',')[1]);
+    const zLo = Math.min(...rows), zHi = Math.max(...rows);
+    return {gFrom: bx0 * PITCH - 3, gTo: (bx0 + fw) * PITCH + 3,
+            zFrom: zLo * PITCH - 3, zTo: zHi * PITCH + PITCH + 3,
+            size: state.size, taken: new Set()};
+  })();
+  const netTrams = buildNetwork(NETB);
+
   /* ---- 5b. superblocks: stadium, malls, factories and outlying forest ---- */
   const placeSpanning = (spec, bx, bz, spread) => {
     const sprd = spread || 3;
@@ -7886,64 +8169,36 @@ function generateCity(seed, sizeIdx, layout, density){
     fillBlock(bx, bz, recipeHood());
   }
 
-  /* ---- 7. transit that actually links the pieces ---- */
-  const gFrom = bx0 * PITCH - 3, gTo = (bx0 + fw) * PITCH + 3;
-  const rows = new Set(), cols = new Set();
+  /* ---- 7. the rest of the network, hung off the arterials ---- */
   const lineOf = b => nodeGX(clamp(b, 0, NX - 1));
-  let zFrom = GRID, zTo = 0;
-  for(const k of zone.keys()){ const c = k.split(',');
-    zFrom = Math.min(zFrom, +c[1] * PITCH - 3); zTo = Math.max(zTo, +c[1] * PITCH + PITCH + 3); }
-  for(const [bx, bz] of biz){ rows.add(lineOf(bz)); cols.add(lineOf(bx)); }
-  if(park){ rows.add(lineOf(park[1] + ph - 1)); cols.add(lineOf(park[0] - 1)); }
   let waterRow = 0;
   for(let bx = bx0; bx < bx0 + fw; bx++) waterRow = Math.max(waterRow, shoreRow[bx] || 0);
-  rows.add(lineOf(Math.max(0, waterRow - 1)));                 // tram one street inland
-  rows.add(lineOf(Math.max(0, waterRow - Math.floor(fh / 2))));
+  // hubs worth an interchange: the business centres, the great park, the shore
+  const hubs = [];
+  for(const [bx, bz] of biz) hubs.push([lineOf(bx), lineOf(bz)], [lineOf(bx - 2), lineOf(bz - 1)]);
+  if(park) hubs.push([lineOf(park[0] - 1), lineOf(park[1])],
+                     [lineOf(park[0] + pw - 1), lineOf(park[1] + ph - 1)]);
+  hubs.push([lineOf(bx0 + 1), lineOf(Math.max(0, waterRow - 1))]);
+  hubs.push([lineOf(bx0 + fw - 2), lineOf(Math.max(0, waterRow - 1))]);
+  NETB.hubs = hubs;
 
-  const stations = [];
-  for(const [bx, bz] of biz){ stations.push([lineOf(bx), lineOf(bz)], [lineOf(bx - 2), lineOf(bz - 1)]); }
-  if(park) stations.push([lineOf(park[0] - 1), lineOf(park[1])], [lineOf(park[0] + pw - 1), lineOf(park[1] + ph - 1)]);
-  stations.push([lineOf(bx0 + 1), lineOf(Math.max(0, waterRow - fh + 2))]);
-  stations.push([lineOf(bx0 + fw - 2), lineOf(Math.max(0, waterRow - fh + 3))]);
-  for(const [gx, gz] of stations) if(canPlace('subway', gx, gz, 0, -1)) addObject('subway', gx, gz, 0);
+  layFeeders(NETB, netTrams);
+  layLattice(NETB);
+  layPerimeter(NETB);
+  laySubway(NETB);
 
-  const tramLines = [];
-  const addTramLine = (fixed, axis, from, to) => {
-    const stops = [];
-    for(let i = 0; i < NX; i++){
-      const g = nodeGX(i);
-      if(g < from || g > to || i % 2) continue;
-      const gx = axis === 'x' ? g : fixed, gz = axis === 'x' ? fixed : g;
-      const srot = axis === 'x' ? 0 : 1;
-      if(!canPlace('tramstop', gx, gz, srot, -1)) continue;
-      addObject('tramstop', gx, gz, srot);
-      stops.push(state.objects[state.objects.length - 1].uid);
-    }
-    if(stops.length > 1)
-      tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops});
-  };
-  for(const r of rows) addTramLine(r, 'x', gFrom, gTo);
-  for(const c2 of cols) addTramLine(c2, 'z', zFrom, zTo);
-
-  const bikeRows = [], bikeCols = [];
-  for(let i = 0; i < NX; i++){
-    const g = nodeGX(i);
-    if(g > zFrom && g < zTo && !rows.has(g) && i % 2 === 0) bikeRows.push(g);
-    if(g > gFrom && g < gTo && !cols.has(g) && i % 2 === 1) bikeCols.push(g);
-  }
-  for(const r of bikeRows.slice(0, 5)) placeLine('bike', r, 'x', gFrom, gTo);
-  for(const c2 of bikeCols.slice(0, 5)) placeLine('bike', c2, 'z', zFrom, zTo);
   // the waterfront promenade street: the lowest line that is still mostly on land
   let walkLine = -1;
   for(let i = 0; i < NX; i++){
     const line = nodeGX(i);
-    if(rows.has(line) || line < zFrom || line > zTo) continue;
+    if(line < NETB.zFrom || line > NETB.zTo) continue;
     let n = 0;
-    for(let g = Math.max(1, gFrom); g <= Math.min(GRID - 2, gTo); g++) if(canPlace('walk', g, line, 0, -1)) n++;
+    for(let g = Math.max(1, NETB.gFrom); g <= Math.min(GRID - 2, NETB.gTo); g++)
+      if(canPlace('walk', g, line, 0, -1)) n++;
     if(n > 8 && line > walkLine) walkLine = line;
   }
-  if(walkLine >= 0) placeLine('walk', walkLine, 'x', gFrom, gTo);
-  state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(tramLines);
+  if(walkLine >= 0) placeLine('walk', walkLine, 'x', NETB.gFrom, NETB.gTo);
+  state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(netTrams);
 
   state.hour = 7.2; state.simTime = 7.2;
   rebuildCity();

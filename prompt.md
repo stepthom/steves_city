@@ -33,7 +33,7 @@ One palette entry per *kind* of thing, grouped by category. Every placed object 
 - **Civic:** Hospital (4–60 storeys), School (4–16, default 6×5×9), both up to **10×10 cells** and spanning streets like a superblock — a big hospital or a school campus is bigger than a city block. Library (4–14), **City Hall** (4–16 storeys, 4×4 to 8×8, spanning streets).
 - **Sports:** Sports Field, **Sports Park**, **Swimming Pool**, **Sports Megatower** (5–40 storeys, 5×5 to 10×10, spanning), Stadium (big — 5×5 up to 11×11 cells).
 - **Green & leisure:** Park, Forest, Lake, **Playground**, Plaza, Waterfront Promenade — all resizable.
-- **Transit:** tram stop, subway stop, bike path, walking path. Bike and walking routes are painted cell by cell along streets; tram and subway are drawn as lines between stops (see below).
+- **Transit:** tram stop, subway stop, bike path, walking path. Bike and walking routes are painted cell by cell along streets; tram and subway are drawn as lines between stops (see below). A bike cell flagged as an arterial draws a whole transit corridor instead.
 - **Landmarks:** an Eiffel-like **Spire** (40–190 storeys), a **Megatower** (60–300), a Gateway-Arch-like **Arch** (15–90), a **Statue**, a **Fountain**, and a **Cathedral**.
 
 ### The Sports Park
@@ -81,6 +81,35 @@ Instance the heads and the wash and switch them through the instance colour, so 
 
 ### Fences
 **Swimming pools, tennis courts and basketball courts are fenced** — posts, a top rail and a mid rail, tall around the courts and low around the pool. Soccer pitches and athletics tracks are not, and a court inside a stadium bowl isn't either, since the bowl already encloses it. Keep the fence cheap enough that every court in the city can have one.
+
+## The transit skeleton
+Every layout gets the same network, built by the same code. Whether you can get from a given doorstep to the rest of the city should not depend on which street pattern the city happened to be generated with.
+
+**The standard it is built to: every building is within two blocks — about 108 m — of a tram stop, a subway stop or a bike path.** In a finished city that comes out at 98–100% for every layout at every size. Assert on *that*, not on how many lines were laid: a line that failed to place because a superblock was in the way still counts as a line.
+
+### Arterials
+**One to four corridors each way**, scaled to size — a town gets one of each, a metropolis four — spread evenly across the footprint and spanning its whole length.
+
+An arterial is **all three modes on one street**: dual tram track down the centre channel, a protected bike lane each side of it, and a lamp-lit paved promenade on the kerbs. That combination is the point; three parallel routes on three different streets is not the same thing.
+
+Two things make this harder than it looks:
+
+- **Two transit objects cannot share a cell.** Lay a bike path and then a promenade on the same street and the second simply fails to place — you get a bike lane you have been calling a corridor. It has to be *one* object per cell that knows it is an arterial and draws the whole nine metres itself.
+- **The track along it must be drawn narrow.** The ordinary tram bed is 8.2 m of a 9 m street; draw that over an arterial and it swallows the bike lanes and the promenade whole. Pull the rails in and let the corridor lay its own bed.
+
+Long trips **prefer** arterials — they are the one route type better than a plain street for every mode at once. Decide that where the tram edges are added, not from what covers the ground: a modern city has no tram *objects*, since track is implied by the line, so counting nets on the cells would never find a tram anywhere. In a finished metropolis about three quarters of cross-city trips run down an arterial for part of the way, carrying roughly a quarter of all distance travelled.
+
+**Lay the arterials before the superblocks.** Transit is the skeleton, so the stadiums, malls and cathedrals route around the corridors rather than the other way about. Only the arterials go this early — the full bike lattice would take a third of the street lines in the city and leave nowhere for a superblock at all.
+
+### The lattice, the perimeter and the underground
+- **Bike lattice:** every third street line, both ways. That is 162 m between lines, so the furthest any doorstep can be from one is 81 m, inside the standard, at two thirds the objects a spacing of two would cost. It is far and away the most numerous thing in the city — three quarters of all objects in a metropolis — but a cell is one slab, and laying twenty thousand of them takes about 20 ms.
+- **A perimeter route** right round the outside of the built-up area — but **not along the water**, where the promenade already runs and a cycle lane would only get between people and the view. So it is a U, not a loop.
+- **Subway:** stops on the hubs worth an interchange — business centres, the great park, the waterfront, and in a planned city every business district and every third neighbourhood — plus a spread across the footprint so the outer districts reach the middle without three changes. One to three routes, chained automatically.
+
+  **A station must look next door before giving up.** By the time the underground goes in, the bike lattice holds every third street line, so a station aimed at an exact intersection lands on a cycle path more often than not. Without a retry, a whole town can end up with no underground at all.
+
+### Save what marks an arterial
+Both the corridor cells and the tram lines running down them carry a flag, and **both have to be written to the save file**. Leave either out and a reloaded city comes back with its corridors as ordinary bike lanes and its trunk routing gone — invisible until somebody wonders why a saved city feels slower to get around than it did.
 
 ### Park footpaths run straight
 Where a street line is surrounded only by greenery — between two pitches, or crossing a park — it becomes a **3 m stone footpath instead of a road**. It runs dead straight, and it joins up at crossings.
