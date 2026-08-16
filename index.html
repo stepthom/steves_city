@@ -3900,12 +3900,14 @@ const dotsOn = () => overlayOn() || !!(trip.on && trip.routes);
    to one question. */
 function dotLines(){
   if(overlayOn() || !trip.routes) return null;             // null means "all of them"
+  /* Only the lines *this* journey uses: the one route being shown, not every
+     rail option that was considered. Gathering from the tram plan and the subway
+     plan together leaves trains running about on services the traveller is never
+     going to set foot on. On foot or by bike the answer is none of them. */
   const keep = new Set();
-  for(const k of ['tram', 'subway']){
-    const r = trip.routes[k];
-    for(const st of (r && r.steps) || []) if(st.k === 'ride' && st.line !== undefined)
-      keep.add(state.lines.indexOf(st.line));
-  }
+  const r = trip.routes[trip.pick];
+  for(const st of (r && r.steps) || []) if(st.k === 'ride' && st.line !== undefined)
+    keep.add(state.lines.indexOf(st.line));
   return keep;
 }
 const _vd = new THREE.Matrix4();
@@ -4443,14 +4445,14 @@ const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, trunk:3
    subway, where riders vanish into the tunnel and reappear at the far station. */
 function visSpeed(mode, kind, a){
   const onTrip = a && a.trip, onService = a && a.tripRail;
-  if(onTrip && kind === 'bike') return RIDE_SPEED.bike / AGENT_BASE;
-  if(kind === 'subway') return onTrip ? RIDE_SPEED.subway / AGENT_BASE : SEG_VIS_SPEED.subway;
+  if(onTrip && kind === 'bike') return BIKE_MS / WALK_MS;      // the leg's pace, over the walker's
+  if(kind === 'subway') return onTrip ? RIDE_SPEED.subway / WALK_MS : SEG_VIS_SPEED.subway;
   /* A traveller on a planned journey rides the *service*, not one particular
      vehicle. Waiting for a real tram cannot work here: trams move at the
      compressed `boost` pace, so in simulated time they crawl as the clock
      speeds up, and a quoted three-minute wait turns into forty-seven minutes at
      600x. They wait the timetable's worth and then run at line speed. */
-  if(onService && (kind === 'tram' || kind === 'trunk')) return TRAM_MS / AGENT_BASE;
+  if(onService && (kind === 'tram' || kind === 'trunk')) return TRAM_MS / WALK_MS;
   return 1;
 }
 
@@ -5550,7 +5552,7 @@ function buildMetroVehicles(){
   (G.metroPaths || []).forEach((path, pi) => {
     const n = path.pts.length - 1;
     if(n < 1) return;
-    const count = clamp(Math.round(n / 1.6), 2, 6);
+    const count = clamp(Math.round(n / 1.1), 3, 10);   // an express line wants a frequent service
     for(let i = 0; i < count; i++)
       metros.push({pts: path.pts, pi, li: path.li, t: (i + 0.4) / count * n,
                    dir: i % 2 ? -1 : 1, wait: 0, atStop: -1, load: 0, wx: path.pts[0].x, wz: path.pts[0].z});
@@ -6567,10 +6569,19 @@ const TRIP_RUN = {walk:'walk', bike:'bikeonly', tram:'tramride', subway:'metrori
    never on the edge: someone walking down an arterial is on a `trunk` edge, and
    without the check they board it and cover the whole walk at tram speed. */
 const RAIL_PROFILE = {tramride:1, metroride:1};
-/* Metres per second, matching what the figures actually do on screen. */
+/* Metres per second. The ambient crowd ambles at AGENT_BASE, which was chosen
+   for how a street full of figures *looks* at city zoom — but half a metre a
+   second is not how fast anybody walks, and quoting a journey at that pace
+   gives four minutes to cover a hundred and sixty metres, which is nonsense on
+   its face. Somebody making a deliberate trip walks at a real walking pace and
+   rides at a real cycling one, and the traveller sent off to take the journey
+   moves at exactly these speeds too, so the estimate still matches what you
+   watch. */
+const WALK_MS = 1.35;                  // a purposeful walk, ~4.9 km/h
+const BIKE_MS = 4.20;                  // ~15 km/h on a protected lane
 const RIDE_SPEED = {
-  walk: AGENT_BASE, park: AGENT_BASE, path: AGENT_BASE,
-  bike: AGENT_BASE * 3.5,
+  walk: WALK_MS, park: WALK_MS, path: WALK_MS,
+  bike: BIKE_MS,
   tram: 11.5, trunk: 11.5,                       // the tram vehicle's own pace
   subway: AGENT_BASE * SEG_VIS_SPEED.subway,
 };
@@ -6632,7 +6643,7 @@ function walkPath(from, to){
   let d = 0;
   for(let i = 1; i < nodes.length; i++)
     d += Math.hypot(G.x[nodes[i]] - G.x[nodes[i-1]], G.z[nodes[i]] - G.z[nodes[i-1]]);
-  return {nodes, dist: d, secs: d / AGENT_BASE, pts: nodes.map(n => [G.x[n], G.z[n]])};
+  return {nodes, dist: d, secs: d / WALK_MS, pts: nodes.map(n => [G.x[n], G.z[n]])};
 }
 function ptsOf(nodes){ return nodes.map(n => [G.x[n], G.z[n]]); }
 const nameOf = o => o ? (PLURALS[o.type] ? PLURALS[o.type][0] : TYPES[o.type].label) : 'the destination';
@@ -6688,7 +6699,7 @@ function planBike(A, B){
     const u = q.shift();
     for(const e of (G.adj[u] || [])){
       if(e.kind !== 'bike' && e.kind !== 'trunk') continue;
-      const c = cost.get(u) + e.len / RIDE_SPEED.bike;
+      const c = cost.get(u) + e.len / BIKE_MS;
       if(c < (cost.get(e.to) ?? Infinity)){ cost.set(e.to, c); from.set(e.to, u); q.push(e.to); }
     }
   }
@@ -6707,7 +6718,7 @@ function planBike(A, B){
   for(let i = 1; i < chain.length; i++)
     ride += Math.hypot(G.x[chain[i]] - G.x[chain[i-1]], G.z[chain[i]] - G.z[chain[i-1]]);
   if(ride < 1) return null;                        // never actually got on a path
-  const rideSecs = ride / RIDE_SPEED.bike;
+  const rideSecs = ride / BIKE_MS;
   const onFoot = inW.secs + outW.secs;
   const pts = inW.pts.concat(ptsOf(chain), outW.pts);
   const pk = inW.pts.slice(1).map(() => 'walk')
@@ -6773,8 +6784,8 @@ function stopGraph(want){
   for(let i = 0; i < stops.length; i++) for(let j = i + 1; j < stops.length; j++){
     const d = Math.hypot(stops[i].x - stops[j].x, stops[i].z - stops[j].z);
     if(d < 1 || d > INTERCHANGE) continue;
-    stops[i].adj.push({to:j, secs: d / AGENT_BASE, dist:d, ride:0});
-    stops[j].adj.push({to:i, secs: d / AGENT_BASE, dist:d, ride:0});
+    stops[i].adj.push({to:j, secs: d / WALK_MS, dist:d, ride:0});
+    stops[j].adj.push({to:i, secs: d / WALK_MS, dist:d, ride:0});
   }
   return stops;
 }
@@ -6895,7 +6906,13 @@ function planByService(A, B, want){
     dist += p.e.dist;
     if(p.e.ride){
       riding += p.e.secs;
-      if(!ride){
+      /* A new ride whenever the *line* changes, not merely when a walk
+         interrupts. Two corridors that cross share a station, so you can change
+         trains without setting foot outside — and merging those into one ride
+         produces a "ride" whose two ends are on different lines, which no single
+         line can serve. The leg is then dropped and the traveller walks the
+         whole way, which is exactly what it looks like. */
+      if(!ride || ride.line !== p.e.line){
         if(ridden){ const w2 = waitOn(p.e.line); waiting += w2; boards++; }
         steps.push({k:'wait', kind:want, len:0, secs: waitOn(p.e.line),
                     label: want === 'subway' ? 'Wait on the platform' : 'Wait at the tram stop'});
@@ -7170,7 +7187,7 @@ function tripTakeIt(){
   a.trip = true;
   a.home = trip.a; a.work = trip.b;
   a.cyclist = trip.pick === 'bike';
-  a.spd = 1.0;   // the pace of each leg comes from the leg, not the person
+  a.spd = WALK_MS / AGENT_BASE;   // walk at the pace the panel quoted
   a.sporty = false; a.roofer = false;
   a.color = 0xffe08a;
   a.at = trip.a; a.state = 'in'; a.hidden = true;
@@ -8925,19 +8942,32 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
   const tramLines = [];
   const NETB = {gFrom: from, gTo: to, zFrom, zTo, size: state.size, taken: new Set()};
 
-  /* The arterials run the separating strips, never through a neighbourhood and
-     never across the central park — but they are the same corridor as anywhere
-     else: track down the middle, protected bike lane beside it, promenade on
-     the kerbs. */
+  /* Grid coordinates of the useful lines. `gapRow(j)` is the strip of open
+     ground after district row j — j = -1 being the strip before the first row —
+     and `midRow(j)` runs through the middle of row j itself. */
+  const gapRow = j => lineOf(bz0 + gapBlock(j));
+  const gapCol = i => lineOf(bx0 + gapBlock(i));
+  const midRow = j => lineOf(bz0 + j * HOOD_PITCH + 2);
+  const midCol = i => lineOf(bx0 + i * HOOD_PITCH + 2);
+  const inPark = (i, j) => i >= parkI[0] && i <= parkI[1] && j >= parkJ[0] && j <= parkJ[1];
+
+  /* ---- the arterials ----
+     The same corridor as anywhere else — track down the middle, protected bike
+     lane beside it, promenade on the kerbs — laid along separating strips, so
+     never through a neighbourhood and never across the central park. */
   const gapsX = [], gapsZ = [];
-  for(let j = 0; j < gh; j++) if(j < parkJ[0] || j > parkJ[1]) gapsX.push(lineOf(bz0 + gapBlock(j)));
-  for(let i = 0; i < gw; i++) if(i < parkI[0] || i > parkI[1]) gapsZ.push(lineOf(bx0 + gapBlock(i)));
+  for(let j = 0; j < gh; j++) if(j < parkJ[0] || j > parkJ[1]) gapsX.push(gapRow(j));
+  for(let i = 0; i < gw; i++) if(i < parkI[0] || i > parkI[1]) gapsZ.push(gapCol(i));
   const n = trunkCount(state.size);
   for(const gz of spreadLines(gapsX, n)){ NETB.taken.add('x' + gz); layTrunk(gz, 'x', from, to, tramLines); }
   for(const gx of spreadLines(gapsZ, n)){ NETB.taken.add('z' + gx); layTrunk(gx, 'z', zFrom, zTo, tramLines); }
 
-  /* Feeder trams on the remaining strips, so every neighbourhood has a couple
-     of stops of its own and is one gap from the trunk network. */
+  /* ---- trams ----
+     A line along *every* separating strip, both ways, with stops every other
+     junction. That is what makes the tram the right answer for a short or
+     middling trip: whichever way a district faces there is a stop on the strip
+     beside it, and the network is dense enough that two neighbourhoods are
+     rarely more than one change apart. */
   const runLine = (fixed, axis, a, b, everyN) => {
     const stops = [];
     for(let i = 0; i < NX; i++){
@@ -8950,29 +8980,122 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
       stops.push(state.objects[state.objects.length - 1].uid);
     }
     if(stops.length > 1) tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops});
+    return stops.length;
   };
-  for(const g of gapsX) if(!NETB.taken.has('x' + g)) runLine(g, 'x', from, to, 3);
-  for(const g of gapsZ) if(!NETB.taken.has('z' + g)) runLine(g, 'z', zFrom, zTo, 3);
+  for(let j = -1; j < gh; j++){
+    const g = gapRow(j);
+    if(NETB.taken.has('x' + g)) continue;
+    runLine(g, 'x', from, to, 2);
+  }
+  for(let i = -1; i < gw; i++){
+    const g = gapCol(i);
+    if(NETB.taken.has('z' + g)) continue;
+    runLine(g, 'z', zFrom, zTo, 2);
+  }
 
-  /* The bike lattice covers the neighbourhoods themselves — trams stay out of
-     them, but a bike path is exactly what a neighbourhood wants — plus a route
+  /* ---- the bike lattice ----
+     Inside the neighbourhoods as well as around them: trams stay out of a
+     district, but a bike path is exactly what a district wants. Plus a route
      right round the outside of the city, off the water. */
   layLattice(NETB);
   layPerimeter(NETB);
 
-  // subway: every business district, every third neighbourhood, and a spread
-  // of stops across the footprint so the outer districts reach the middle
-  const hubs = [];
-  let m = 0;
+  /* ---- the underground ----
+     Not a chain of stations threaded together by whichever happens to be
+     nearest — that wanders, doubles back, and leaves half the city a change or
+     two from anywhere. Build it as a *grid of straight lines*: a corridor along
+     every other separating strip each way, a station where each corridor passes
+     a district, and a shared station wherever two corridors cross. The crossings
+     are the interchanges, and they fall out of the geometry for free.
+
+     A tunnel may run under the central park; only the surface has to go round. */
+  const stationAt = new Map();                       // "gx,gz" -> uid, so crossings are shared
+  const putStop = (gx, gz) => {
+    const k = gx + ',' + gz;
+    if(stationAt.has(k)) return stationAt.get(k);
+    for(const [dx, dz] of [[0,0],[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]]){
+      const px = gx + dx * PITCH, pz = gz + dz * PITCH;
+      if(!canPlace('subway', px, pz, 0, -1)) continue;
+      addObject('subway', px, pz, 0);
+      const uid = state.objects[state.objects.length - 1].uid;
+      stationAt.set(k, uid);
+      return uid;
+    }
+    return null;
+  };
+  const rowCorr = [], colCorr = [];
+  for(let j = -1; j < gh; j += 2) rowCorr.push(j);
+  for(let i = -1; i < gw; i += 2) colCorr.push(i);
+  if(!rowCorr.includes(gh - 1)) rowCorr.push(gh - 1);   // always serve the far edges
+  if(!colCorr.includes(gw - 1)) colCorr.push(gw - 1);
+  const subLines = [];
+  const rowLineOf = new Map(), colLineOf = new Map();   // corridor -> its line
+  for(const j of rowCorr){
+    const z = gapRow(j);
+    /* Stations every other district, plus every crossing. An underground that
+       stops beside all of them is a slow tram: each call costs its dwell, and
+       over a long line that is minutes. Local access is the tram network's job —
+       this one is for crossing the city. */
+    const xs = [];
+    for(let i = 0; i < gw; i += 2) xs.push(midCol(i));
+    for(const i of colCorr) xs.push(gapCol(i));
+    const stops = [...new Set(xs)].sort((a, b) => a - b)
+      .map(x => putStop(x, z)).filter(u => u !== null);
+    if(stops.length > 1){
+      const L = {mode:'subway', c: subLines.length % METRO_COLS.length, stops};
+      subLines.push(L); rowLineOf.set(j, L);
+    }
+  }
+  for(const i of colCorr){
+    const x = gapCol(i);
+    const zs = [];
+    for(let j = 0; j < gh; j += 2) zs.push(midRow(j));
+    for(const j of rowCorr) zs.push(gapRow(j));
+    const stops = [...new Set(zs)].sort((a, b) => a - b)
+      .map(z => putStop(x, z)).filter(u => u !== null);
+    if(stops.length > 1){
+      const L = {mode:'subway', c: subLines.length % METRO_COLS.length, stops};
+      subLines.push(L); colLineOf.set(i, L);
+    }
+  }
+  /* Anything the grid missed — a district the corridors happen to skirt, a
+     business centre that deserves its own entrance — gets a station on the
+     nearest corridor, added to *that corridor's own line*. Attaching it by
+     guessing which line looks closest leaves stations dangling off the network
+     entirely, which is worse than not having built them. */
   for(const [k, r] of role){
     if(r === 'park') continue;
     const [i, j] = k.split(',').map(Number);
-    if(r !== 'biz' && r !== 'shops' && (m++ % 3)) continue;
-    hubs.push([lineOf(bx0 + i * HOOD_PITCH + 2), lineOf(bz0 + j * HOOD_PITCH + 2)]);
+    const cx = midCol(i), cz = midRow(j);
+    let best = Infinity;
+    for(const u of stationAt.values()){
+      const st = stationByUid(u);
+      if(!st) continue;
+      best = Math.min(best, Math.hypot(wx(st.gx) - wx(cx), wz(st.gz) - wz(cz)));
+    }
+    if(best <= 300) continue;                                  // already served
+    /* Try both corridors, and every corridor if need be. A district with no
+       station is the one thing this network is not allowed to have, and the
+       obvious spot being occupied is not a good enough reason to give up. */
+    const byDist = (arr, v) => arr.slice().sort((a, b) => Math.abs(a - v) - Math.abs(b - v));
+    let uid = null, host = null;
+    for(const j2 of byDist(rowCorr, j)){
+      uid = putStop(cx, gapRow(j2));
+      if(uid !== null){ host = rowLineOf.get(j2); break; }
+    }
+    if(uid === null || !host) for(const i2 of byDist(colCorr, i)){
+      uid = putStop(gapCol(i2), cz);
+      if(uid !== null){ host = colLineOf.get(i2); break; }
+    }
+    if(uid === null || !host) continue;
+    if(host.stops.includes(uid)) continue;
+    host.stops.push(uid);
+    host.stops.sort((a, b) => {
+      const A = stationByUid(a), B = stationByUid(b);
+      return (A.gx + A.gz) - (B.gx + B.gz);
+    });
   }
-  NETB.hubs = hubs;
-  laySubway(NETB);
-  state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(tramLines);
+  state.lines = subLines.concat(tramLines);
 }
 
 /* ============================================================================
