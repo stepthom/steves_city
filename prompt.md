@@ -82,6 +82,117 @@ Instance the heads and the wash and switch them through the instance colour, so 
 ### Fences
 **Swimming pools, tennis courts and basketball courts are fenced** — posts, a top rail and a mid rail, tall around the courts and low around the pool. Soccer pitches and athletics tracks are not, and a court inside a stadium bowl isn't either, since the bowl already encloses it. Keep the fence cheap enough that every court in the city can have one.
 
+## Art styles
+A **Look** control in the HUD, alongside crowd density: **Normal** and **Cyberpunk**. It applies to any city at any time, is remembered in the save file, and takes about 150 ms to switch. It is a look, not a regeneration — not one object changes.
+
+Colours are baked into vertex buffers, so a style change is a rebuild. That is also why **every colour in the game has to pass through one function on its way into a buffer**: there are a couple of hundred hard-coded colour constants, and restyling them by hand is not a plan.
+
+### Cyberpunk
+Piercing neon cutting through heavy shadow, rain and smog; high contrast and rim light off wet pavement, chrome and glass.
+
+**The colour transform.** Crush every mid-tone down towards wet asphalt, then put back whatever colour the surface already had, as neon — magenta if it leaned warm, cyan if it leaned cool. The city has to read as darkness cut by light, not as the same city with a filter over it. A road goes from 0.74 luminance to 0.13; a cream facade from 0.87 to 0.15.
+
+**Only surfaces that already had colour get neon.** Give every surface a little of it and the roads come out pink, when wet asphalt should be nearly black and reflecting somebody else's sign. Take the neon share from saturation with a threshold under it: roads and concrete land on a cold near-black, while grass, brick and bike lanes go hot pink and cyan.
+
+**Lighting.** The day cycle still runs, but it never really gets light — at noon the sun drops to under half, the sky to a quarter of its brightness, and the night value floors at 0.74 so the windows are lit around the clock. Fog closes from 520–2900 m to 150–1500 m. Window glow goes from warm amber to cold cyan; shopfronts go hot pink against it; street lamps become cold arc lights. Raise metalness and drop roughness on the buildings, the ground and the terrain so everything reads as wet.
+
+**Keep one channel near zero, or it isn't neon.** The renderer tone-maps with ACES and then converts to sRGB, and that curve desaturates as brightness rises. A glow that is strong in all three channels arrives on screen as white — a cyan of `[0.42 0.92 1.00]` at the emissive gain comes out `[0.89 0.97 0.97]`, saturation 0.09, which is what makes a neon city read as *black with white windows*. The same colour with the red pulled down to 0.08 arrives at saturation 0.86. Check chosen colours through the actual tone curve rather than by eye; it is a few lines of arithmetic and it is the difference between the look working and not.
+
+**Neon outlines.** What makes a cyberpunk skyline is not that the buildings are dark, it is that their edges are drawn in light. Every building gets tube neon up its four corners, a band round the top and the foot, and string courses every 18 m or so up the height — hue taken from the building's own seed, so a street is a mix rather than a monotone. They go on the **glow batch**, which brightens with the rest of the night lighting. The top band has to stand further off the wall than the corner tubes: the cornice is 0.4 m proud, so a band hung at the same 0.18 m sits inside it, invisible and fighting it.
+
+**Lights are not surfaces.** Anything drawn into the glow batch must skip the colour transform entirely. Run a neon tube through it and it comes out crushed to the same dim mauve as the wall behind it. The batch a shape is written into is the signal — no flags needed at the call sites.
+
+**The neon has to out-shine the windows, not the other way round.** Lit windows are the background hum; the tubes on the edges of the buildings are the subject. Put the window gain on a uniform and turn it right down for this style — at the original gain a window came out *brighter* than a neon tube, which reads as an ordinary office block at night rather than as neon. Aim for the tube at roughly 1.7× the window.
+
+Note that above a certain radiance a saturated colour cannot get any brighter without turning white, so past that point **thickness is the only lever left**. The tubes are 0.85 m across, not 0.34.
+
+**A shopfront is a sign, not a lightbox.** The full-height glowing panel that reads well in daylight is, at street level in the dark, the brightest thing in the frame and turns every podium into a row of illuminated boxes — brightness 0.90 at saturation 0.15, i.e. white. Replace it with dark glass edged in neon and a lit sign over the door: brightness 0.42 at saturation 0.93.
+
+**Halos.** Without a bloom pass a bright surface is only a bright surface. A soft additive shell around each canopy is what turns it into something that appears to give off light. Only the **specimen** trees get one — at most twenty-six thousand of those against a hundred and forty thousand in the woods, where sheer number does the same job for free — and it uses the eight-triangle canopy, not the twenty-four. Add a pool of light on the ground beneath each one as well: without it a canopy is a bright *object* rather than something lighting its surroundings, which is the whole difference between coloured and glowing.
+
+**Bake the halo's size into its geometry; do not scale the instance.** A canopy's height is a translate baked into its geometry, so instancing the same shape at 2.45× moves it *up* by 2.45× as well. The halos ended up spanning y 7.6–10.6 m while the canopies sat at 3.2–4.0 m — three and a half metres clear of the trees they belonged to, which is why the trees appeared to give off no light at all despite every halo being present and correct.
+
+**Turn fog off on anything that is meant to be a light.** Cyberpunk fog closes in at 150 m; with fog on, the halos wash out a couple of streets away, which is exactly the distance at which the glow was wanted.
+
+**Machine trees.** A chrome stem carrying flat angular panels instead of a crown of leaves — squashed octahedra, which read as panels from every angle and cost eight triangles each, *cheaper* than the organic canopy rather than dearer, which matters at a hundred and forty thousand of them. The panels are self-lit: a standard material under a dim smoggy sun would render them as dark grey shapes, which is the opposite of the point. Colours come from a neon palette rather than the greens, authored **above 1.0 on purpose**: a canopy at full-scale colour tone-maps to a dull pastel and has to be over-driven to come out of the renderer glowing.
+
+Two things are easy to miss:
+
+- **The terrain is baked once when the world is made**, not by the city rebuild. Change the style without remaking it and the neon city sits on a bright green hillside.
+- **Tree colours are chosen as each tree is made.** On loading a saved city, set the style *before* the objects go in, or a neon city comes back full of green trees until something else triggers a rebuild.
+
+## The journey planner
+A **Journey** button (or `J`). Click a starting point, click a destination, and the city answers with the best it can do **on foot, by bike, by tram and by underground** — each with a door-to-door time, the distance, and how that time splits between walking, riding and waiting. Then **Take this journey**: a traveller spawns at the start, the camera follows them the whole way, and on arrival it reports what it actually took against what was quoted. Esc or Exit at any point.
+
+**The route drawing has two quite different jobs.** While you are choosing, all four answers are laid over the city at once — raised, stacked slightly apart, the chosen one bright and the rest dimmed, and drawn *through* buildings so no route is ever hidden behind a tower. Once you are travelling there is nothing left to compare: draw **only the chosen route**, painted on the road at the traveller's feet, with the city occluding it normally. Left raised and drawn over everything it sits between the camera and the person you are following, which is neither useful nor pleasant to look at.
+
+**Show the answers, not the network.** Nothing is drawn until both ends have been picked, and then only the routes themselves — putting the whole transit overlay up alongside them defeats the object of having asked for four routes. The vehicle beads stay, because watching your train approach is exactly the sort of thing this tool is for, but **only the vehicles on the lines the shown routes use**: four of twenty-five trams, not all of them. In the planner they ride just above the drawn route rather than up on the line bars, which are not there.
+
+**A drawn tram leg has to follow the track.** A tram runs on streets, so joining its two platforms with a straight line puts the route through the middle of blocks it never goes near — and the bead, which *does* follow the track, visibly leaves the line it is supposed to be running on. Splice in the line's own waypoints between the two stops. A subway is a tunnel, and there the straight line is the truth.
+
+### While the journey is running
+**A minimap on the left.** Anchored to the middle of the left edge rather than to the bottom: measuring up from the bottom means guessing how much furniture is down there and how tall the window is, and centring cannot be pushed off-screen by either. A plan of the journey: the city greyed out behind, the transit lines faint under it, the chosen route drawn on top in its own colour with the two ends marked, and a live dot for the traveller. The window is centred on the route and sized to about one and a half times its extent, so a short errand doesn't come out as a squiggle in the middle of a whole city — a typical journey fills about two thirds of the width.
+
+**Draw the city layer once and keep it.** Ten thousand buildings redrawn every frame to move one dot is absurd; render it to an offscreen canvas when the journey starts and blit it.
+
+**Scroll right out.** Following someone used to stop at sixteen metres — a shoulder shot and nothing else. It now goes to nearly five hundred, and the camera rises faster than it pulls back once past forty metres, so the far end of the scroll looks *down* on the city rather than across it from a distance. Make the notches proportional, so crossing five hundred metres takes the same handful of flicks as crossing sixteen: about sixteen notches from the shoulder to 480 m back and 376 m up. And aim the camera at the person as it pulls back — at that range the subject is the whole point of the shot.
+
+
+A **clock counting up** from departure against the quoted total, and the journey written out as **a list of steps with the current one lit**: walk to the tram stop, wait at the tram stop, ride the tram, walk to the destination. Completed steps tick off behind you. The same list appears before you commit, under whichever mode is selected.
+
+Read the current step off the traveller's **live state** — walking, waiting, aboard — rather than from distance covered along the planned line: the legs the simulation builds are not identical to the polyline the planner drew, so anything measured against the plan drifts. Let the cursor move forward only, so a momentary flicker cannot send the checklist backwards. Consecutive walking runs are one step; "walk, then walk a bit more" is not two instructions. And whatever the last step happens to be is the one that gets you there — a journey can end on the rails as easily as on foot, and labelling the last *walk* with the destination puts the arrival in the middle of the list.
+
+**A traveller boards an actual vehicle** — waits on the platform for one to arrive, is carried by it, gets off. Being carried by the tram you can see is the point, and it is also what keeps the checklist in step with what is visibly happening.
+
+**Draw a line between its platforms, not between the street corners near them.** The routing graph runs on a lattice of street intersections, and a station's *node* is the nearest intersection to it — which can be most of a block away. Draw the line between nodes and it stops a couple of cells short of the station it serves, with a visible gap. Generated cities hide this, because their stations are placed on the lattice lines and the two coincide exactly; put a station down by hand off the line and the gap appears. Carry the stop objects on the edge alongside the nodes, and draw between the stops.
+
+**Show where the vehicles are.** A subway is invisible by nature and a tram is a small body in a big city, so in the transit overlay both get the same treatment: a bead in the line's own colour riding the drawn line, brightened so it reads against the bar it runs on and haloed so it still shows over a busy street. It swells slightly while the vehicle stands at a platform. Same visual language for both services — that is rather the point of having an overlay.
+
+Note that turning on `vertexColors` makes the shader declare a colour attribute whether or not the geometry has one, and an unbound attribute reads as (0, 0, 0). A plain sphere therefore renders **black** however carefully its instance colour is set. Give it a white colour attribute to be multiplied by.
+
+**The subway needs trains too, even though nothing draws them.** A tunnel is a straight run between stations with no track to follow and nothing to look at, which makes it tempting to model a subway ride as "traverse the line quickly while hidden". Do that and there is nothing to wait for and nothing to be carried by: the passenger simply walks along the line while the station stands empty beside them — which is exactly what it looks like. Run real trains on the subway lines, simulated and never rendered, with the same waits, dwells and boarding rules as the trams.
+
+Four things have to be true for that to work:
+
+- **Trams keep true simulated time**, not the crowd's `sqrt(speed)` compression. The crowd is compressed so nobody teleports at 600×; a *service* cannot be, because compressed it covers less simulated ground the faster the clock runs — headways stretch out and a passenger quoted a two-minute wait stands on the platform for three-quarters of an hour.
+- **Track the synthetic hold with its own flag, not with `state === 'wait'`.** Read it off the state and the moment a traveller starts waiting for a real tram, the hold logic clears it and walks them straight past the stop. That looks exactly like the checklist being out of sync with the person, because it is.
+- **Count the vehicles rather than guessing the wait.** A line's headway is its round trip divided by how many trams run it, and the average wait is half a headway — **22 to 30 seconds** on these lines, not the flat two and a half minutes I first assumed. Two and a half minutes is obviously wrong to anyone watching trams come and go while the figure stands there.
+- **A journey "by subway" has to involve a subway.** Two things conspire against that. If both ends of a trip are near the *same* station, the cheapest route that satisfies "you must board something" is to ride out to the next station and straight back — a joyride, not a journey; so carry the boarding stop through the search and refuse to alight where you got on. And if boarding isn't required at all, the search happily walks to the station, walks away again, charges a boarding wait for the privilege, and reports the result as a subway trip. Which looks exactly like a person strolling straight past the station, because that is what it is.
+- **Build the itinerary in one pass, in order.** Points, leg kinds, the ride record and the passenger's list of instructions all come out of the same walk along the route. Emit a ride step eagerly, before knowing there is a ride, and an interchange *before* the first boarding will create a phantom one that swallows the real ride's record — the leg is then never built and the traveller walks the whole way. A hop between stops before you have boarded anything is not a change, it is just more walking.
+- **Recover the ride legs from the plan, not from the drawn line.** The planner knows precisely which two stops each ride runs between; work it out afterwards by looking for the nearest station to the ends of a run of `subway` labels and it fails whenever a run starts or ends on a lattice node rather than on a platform — the leg is silently dropped and the traveller walks the tunnel. Record the stops as the route is built.
+- **Follow the vehicle while they are on it.** A rider is carried inside a solid body, so the agent is hidden — and the follow camera reads a hidden subject as "gone inside". The result is a camera standing on the platform they boarded at, captioned *gone inside*, which gives up on them ten seconds later while the tram they are on disappears up the street. Aboard, return the vehicle's pose: the camera rides in the tram's cab, or glides above the tunnel with the train.
+- **"At the stop" has to mean near it.** At 600× a frame is nearly ten simulated seconds, so a tram can arrive, dwell and leave between two of them, and a passenger who insists the vehicle be exactly on the waypoint watches an empty platform while the service runs perfectly. Widen the boarding window as the clock speeds up, and give trams a dwell long enough to be caught — about nine seconds, which is realistic anyway. Count that dwell in the estimate too: a ride through five stops is a minute of standing still.
+
+**Each mode routes on its own network, not on a shared street lattice with preferences.** This is the whole design, and getting it wrong is not subtle: every lattice node pair carries a walkable street edge, so a router that merely *prefers* bike or rail edges falls back on the street grid whenever they aren't handy — and a city with one loop of bike path and no rails at all answers every one of the four questions with the same straight line down the middle.
+
+- **On foot** is unrestricted. Every street in a car-free city is a footway.
+- **By bike** is ridden on bike paths and arterial cycle lanes and on *nothing else*. You may wheel the bike a couple of hundred metres at each end to reach the network and to leave it, but not in the middle — a route that hops on and off wherever the network happens to cross is not a bike route, it is a walk with decoration. Search the bike-only subgraph from the nodes near one end to the nodes near the other.
+- **By tram** and **by subway** are networks of *services* you board and alight from. Route on a graph whose nodes are the stops: ride edges between consecutive stops on a line, interchange edges between stops within about 260 m, an access walk at the front and an egress walk at the back, and a wait charged per boarding. That produces exactly the shape a passenger would describe — walk to the stop, wait, ride, change stops, wait, ride, walk to the door.
+- **"No route" is an answer**, and a useful one. If no bike path joins the two, or no service does, say so and say why, rather than quietly handing back the walking route under a bicycle heading. But if a service *does* link them, always show it and let the time speak for itself — never suppress a real route on the grounds that walking would be quicker.
+
+**Send the traveller along the route that was drawn.** The planners search their own networks; asking the street router for a path again would put them somewhere other than the line the panel is quoting. Hand the agent the polyline and the per-leg kinds directly.
+
+**Quote in the simulation's own units, not real-world ones.**
+
+**Quote in the simulation's own units, not real-world ones.** The whole value of the tool is that you can then watch the journey happen, and an estimate the traveller visibly disagrees with is worse than no estimate. Walking is timed at the same 0.73 m/s the figures actually walk at, a bike at the cyclists' own pace, a tram at the vehicle's 11.5 m/s.
+
+**Nought metres is a perfectly good walk.** When a building and a stop share a lattice node — which is exactly what happens when the stop is right outside the door — the street router has nothing to return, and treating that as "no path" **drops the nearest stop from the candidates entirely**. The planner is then forced to board somewhere else, and produces the famously silly route of walking right across the city to the far station in order to ride back to the one outside the building you started in. It is worth saying plainly: that route was not a routing subtlety or a quirk of the city, it was a zero-length walk being mistaken for an impossible one.
+
+**A ride has to take you nearer.** Require that the alighting stop is closer to the destination than the boarding stop was. Along with "you must board something" and "you may not get off where you got on", that is what stops the search wandering backwards — and it does it without ever refusing to answer, so a service that exists is always offered, with its honest time, however that compares with walking.
+
+Two further traps:
+
+- **An edge's kind describes the street, not the traveller.** Someone walking down an arterial is on a `trunk` edge; look its speed up in the ride table and a walk across town comes back at eleven metres a second. When the traveller is sent, gating "am I aboard something?" on the edge rather than on the chosen mode has a pedestrian board the arterial and cover the whole walk at tram speed. Gate it on the mode.
+- **The crowd's pace is not constant in simulated time.** Agents move at `sqrt(speed)`, which deliberately under-compensates so nobody teleports at 600×; the side effect is that a person covers *less* simulated ground the faster the clock runs, and a twenty-minute walk becomes two and a half hours at 64×. Fine for ambience, fatal for a quoted journey — so a traveller on a planned trip moves at the city's true pace instead.
+
+The traveller is exempt from the daily schedule (or they turn round and go to work) and is never culled when the crowd is re-seeded (or the camera loses them mid-journey).
+
+**A subway must be faster than a tram.** The subway's speed multiplier was set as a *visual* fudge for riders hidden in the tunnel and worked out slower than the tram — so the underground lost every comparison it was ever asked about. It runs at about 58 km/h against the tram's 41.
+
+Getting the waits right changes the whole picture of the city. With a flat two-and-a-half-minute wait the bike won 96–100% of every journey; counting the vehicles instead, the tram wins **75%** of journeys between 1.5 and 3 km and the subway 21%, while the bike keeps the short hops. The network was always fine — the estimate of it was not.
+
+Verified end to end, quoted against actual: walk +0%, bike +0–1%, tram and subway within ±10% at 1×–60×, with every step of every itinerary reached in order and the traveller carried by a real vehicle. Rail journeys drift to +20–40% at 600×, the irreducible cost of catching a discrete vehicle when a frame is ten simulated seconds long — a quoted *average* wait and a single sampled one differ by up to a headway either way.
+
 ## The transit skeleton
 Every layout gets the same network, built by the same code. Whether you can get from a given doorstep to the rest of the city should not depend on which street pattern the city happened to be generated with.
 
@@ -388,10 +499,9 @@ Hovering a venue with a game on says **how many are actually there**, and how ma
 - The goal of all this: I place towers, transit and parks, and the *patterns* — rush-hour flows, a lunchtime crowd at a plaza, a busy tram line, a lively waterfront at dusk, a five-a-side game in the evening, a dark office district beside still-lit flats — emerge from my layout in ways I didn't explicitly design.
 
 ## Time
-- **1× means real time: one second of city per second of my life.** A full day takes 24 hours at 1×. This is the default, and it's meant to be watchable — sit and see the light move.
-- Speed control is **pause / 1× / 60× / 600×**. 60× is a minute a second, 600× is ten minutes a second — a full day in about two and a half minutes. Space bar toggles pause.
-- A **jump-to-hour slider** scrubs straight to any time of day without changing the speed.
-- The clock reads in **12-hour am/pm** — `7:12am`, `12:00pm`, `11:30pm` — with the am/pm marker set smaller and dimmer than the digits, and the phase of day named beside it.
+Pause, **1× (real time), 10×, 60×, 600×**. 1× means one second per second — the clock is the clock, and anything quoted in minutes has to hold at every setting.
+
+The crowd moves at `sqrt(speed)` so that nobody teleports at 600×, which means an ordinary figure covers *less simulated ground* the faster the clock runs. That is fine for ambience and wrong for anything measured: **a scheduled service and a traveller on a quoted journey both keep true simulated time.**
 
 ## Modes & controls
 Two clearly toggled modes (Tab switches):

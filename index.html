@@ -55,7 +55,49 @@
   .num{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
   .lbl{font-size:9.5px;color:var(--dim);letter-spacing:1.1px;text-transform:uppercase;margin-right:2px}
   #speedseg button{padding:7px 9px}
-  #densityseg button{padding:6px 9px;font-size:11px}
+  #densityseg button, #artseg button{padding:6px 9px;font-size:11px}
+
+  /* Anchored to the middle of the left edge rather than to the bottom. Measuring
+     up from the bottom means guessing how much furniture is down there and how
+     tall the window is; centring cannot be pushed off-screen by either. */
+  #minimap{left:16px;top:50%;transform:translateY(-50%);padding:8px;display:none;line-height:0}
+  #minimap.show{display:block}
+  #minimap canvas{border-radius:8px;display:block}
+  .mmlab{line-height:1.3;font-size:10px;color:var(--dim);margin-top:6px;letter-spacing:.3px}
+  #trip{right:16px;top:64px;width:268px;padding:12px;display:none}
+  #trip.show{display:block}
+  .tphead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .tphead b{font-size:12.5px;letter-spacing:.2px}
+  .tprow{display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin:3px 0}
+  .tprow .tpk{color:var(--dim);width:34px;flex:0 0 auto}
+  .tphint{color:var(--dim);font-size:11px;margin:9px 0 2px;line-height:1.45}
+  .tpm{display:grid;grid-template-columns:11px 1fr auto;gap:7px;align-items:center;width:100%;
+    border:1px solid var(--stroke);background:rgba(255,255,255,.05);border-radius:9px;
+    padding:7px 9px;margin-top:6px;cursor:pointer;text-align:left;transition:.13s}
+  .tpm:hover{background:rgba(255,255,255,.10)}
+  .tpm.on{border-color:var(--accent);background:rgba(255,255,255,.13)}
+  .tpm.off{opacity:.45;cursor:default}
+  .tpm i{width:11px;height:11px;border-radius:3px}
+  .tpm .tpn{font-size:11.5px;font-weight:600}
+  .tpm .tpn em{font-style:normal;color:var(--accent);font-size:9.5px;letter-spacing:.8px;
+    text-transform:uppercase;margin-left:4px}
+  .tpm .tpt{font-size:12.5px;font-weight:700}
+  .tpm .tpd{grid-column:2 / 4;font-size:10px;color:var(--dim);margin-top:1px}
+  .btn.wide{width:100%;margin-top:10px;justify-content:center}
+  .tpclock{display:flex;align-items:baseline;gap:8px;margin:2px 0 10px}
+  .tpclock b{font-size:26px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .tpclock span{font-size:11px;color:var(--dim)}
+  .tpsteps{border-left:1px solid var(--stroke);margin-left:5px;padding-left:0}
+  .tpsteps.plan{margin-top:10px}
+  .tpstep{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;
+    padding:6px 0 6px 12px;margin-left:-5px;font-size:11.5px;color:var(--dim);position:relative}
+  .tpstep i{width:9px;height:9px;border-radius:50%;background:var(--stroke);
+    margin-left:-16px;box-shadow:0 0 0 3px rgba(20,22,28,.9)}
+  .tpstep.done{color:var(--dim);opacity:.6}
+  .tpstep.done i{background:var(--accent);opacity:.5}
+  .tpstep.now{color:#fff;font-weight:600}
+  .tpstep.now i{background:var(--accent);box-shadow:0 0 0 3px rgba(20,22,28,.9),0 0 12px var(--accent)}
+  .tpstep .tpsd{font-size:10px;color:var(--dim);font-weight:400}
 
   #palette{left:16px;bottom:16px;padding:12px;width:246px;max-height:calc(100vh - 190px);overflow-y:auto;
     display:none;scrollbar-width:thin}
@@ -208,6 +250,7 @@
     </div>
     <button class="btn" id="btnUndo" title="Undo the last change (Ctrl+Z)">Undo</button>
     <button class="btn" id="btnFly" title="Cinematic tour of the city (V)">Flyby</button>
+    <button class="btn" id="btnTrip" title="How long does it take to get from here to there? (J)">Journey</button>
     <button class="btn" id="btnNew">New City</button>
     <button class="btn" id="btnSave">Save</button>
     <button class="btn" id="btnLoad">Load</button>
@@ -219,6 +262,7 @@
       <div class="seg" id="speedseg">
         <button data-sp="0" title="Pause (Space)">❚❚</button>
         <button data-sp="1" class="on" title="Real time — 1 second per second">1×</button>
+        <button data-sp="10" title="10 seconds per second">10×</button>
         <button data-sp="60" title="1 minute per second">60×</button>
         <button data-sp="600" title="10 minutes per second — a full day in 2½ min">600×</button>
       </div>
@@ -237,6 +281,11 @@
       <span class="lbl">Size</span>
       <input type="range" id="pplsize" min="40" max="240" step="5" value="100">
       <b class="num" id="pplsizev">1.0×</b>
+      <span class="lbl">Look</span>
+      <div class="seg" id="artseg">
+        <button data-ar="normal" class="on" title="Daylight, brick and glass, green parks">Normal</button>
+        <button data-ar="cyberpunk" title="Neon cutting through rain and smog">Cyberpunk</button>
+      </div>
     </div>
   </div>
 
@@ -249,6 +298,13 @@
     <div class="lgr"><i style="background:#ebdcb8"></i>Walking path</div>
   </div>
   <div class="panel" id="inspect"></div>
+  <div class="panel" id="minimap"><canvas id="mmc" width="190" height="190"></canvas>
+    <div class="mmlab" id="mmlab"></div></div>
+  <div class="panel" id="trip">
+    <div class="tphead"><b>Journey planner</b>
+      <button class="btn" id="tripExit" title="Close (Esc)">Exit</button></div>
+    <div id="tripBody"></div>
+  </div>
   <div class="panel" id="cine">
     <div class="cd"><span class="cs" id="cineKind">Flyby</span><span class="ct" id="cineWhat"></span></div>
     <button class="btn" id="cineNext" title="Skip to the next shot">Next shot</button>
@@ -362,6 +418,38 @@ const smoothstep = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1);
 /* authored colours are sRGB; three's working space is linear */
 const s2l = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 const L3 = c => [s2l(c[0]), s2l(c[1]), s2l(c[2])];
+
+/* ---- art styles -----------------------------------------------------------
+   The look of the whole city, chosen at any time and applied by rebuilding.
+   Colours are baked into vertex attributes, so a style change is a rebuild —
+   which is also why every colour in the game has to pass through one function
+   on its way into a buffer, rather than two hundred hard-coded constants each
+   being restyled by hand. */
+const ARTS = [
+  {k:'normal', n:'Normal', dark:0,
+   d:'Daylight, brick and glass, green parks.'},
+  {k:'cyberpunk', n:'Cyberpunk', dark:1,
+   d:'Neon cutting through rain and smog; chrome, wet asphalt, machine trees.'},
+];
+const artOf = k => ARTS.find(a => a.k === k) || ARTS[0];
+let ART = ARTS[0];
+/* Crush the mid-tones down to wet asphalt, then put back whatever colour the
+   surface had as neon. The city has to read as darkness cut by light, not as
+   the same city with a filter over it — so a grey road goes almost black while
+   a saturated facade keeps its hue and gains a hard edge. */
+function artC(c){
+  if(!ART.dark) return c;
+  const mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
+  const l = c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+  const sat = mx > 0.004 ? (mx - mn) / mx : 0;
+  const base = [0.085 + l * 0.145, 0.092 + l * 0.150, 0.135 + l * 0.215];
+  const neon = c[0] >= c[2] ? [1.00, 0.14, 0.60] : [0.14, 0.86, 1.00];
+  /* Only surfaces that already had colour get neon. Give every surface a little
+     of it and the roads come out pink, when what wet asphalt should be is
+     almost black and reflecting somebody else's sign. */
+  const k = clamp((sat - 0.11) * 0.88, 0, 0.60);
+  return [lerp(base[0], neon[0], k), lerp(base[1], neon[1], k), lerp(base[2], neon[2], k)];
+}
 
 function mulberry32(a){
   return function(){
@@ -705,6 +793,22 @@ function dayPalette(h){
     litW: lerp(A.litW,B.litW,t), lit24: lerp(A.lit24,B.lit24,t),
   };
 }
+/* Rain, smog and permanent dusk. The day cycle still runs — the sun still comes
+   round — but it never really gets light, so the neon is always the brightest
+   thing in the frame, which is the whole look. */
+function artPalette(p){
+  if(!ART.dark) return p;
+  const smog = [0.028, 0.016, 0.052];
+  const dim = (c, k, t) => [c[0] * k + t[0], c[1] * k + t[1], c[2] * k + t[2]];
+  return {
+    top: dim(p.top, 0.20, smog), mid: dim(p.mid, 0.24, smog), bot: dim(p.bot, 0.28, smog),
+    fog: dim(p.fog, 0.26, [0.040, 0.024, 0.070]),
+    sun: [p.sun[0] * 0.50 + 0.10, p.sun[1] * 0.40 + 0.05, p.sun[2] * 0.66 + 0.24],
+    si: p.si * 0.42, hemi: p.hemi * 0.55,
+    night: Math.max(p.night, 0.74),
+    lit: Math.max(p.lit, 0.46), litW: Math.max(p.litW, 0.38), lit24: Math.max(p.lit24, 0.58),
+  };
+}
 function sunDirection(h){
   const ang = (h - 6) / 12 * Math.PI;
   const s = Math.sin(ang), c = Math.cos(ang);
@@ -798,11 +902,13 @@ function buildTerrain(){
     if(out2 > 0){ const k = smoothstep(0, 110, out2) * 0.5;
       c = [lerp(c[0],.40,k), lerp(c[1],.42,k), lerp(c[2],.39,k)]; }
     const v = 0.92 + n * 0.16;
-    col[i*3] = s2l(c[0])*v; col[i*3+1] = s2l(c[1])*v; col[i*3+2] = s2l(c[2])*v;
+    const ac = artC(c);          // the countryside gets the same treatment as the city
+    col[i*3] = s2l(ac[0])*v; col[i*3+1] = s2l(ac[1])*v; col[i*3+2] = s2l(ac[2])*v;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.computeVertexNormals();
-  terrainMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.97, metalness:0.0});
+  terrainMat = new THREE.MeshStandardMaterial({vertexColors:true,
+    roughness: ART.dark ? 0.42 : 0.97, metalness: ART.dark ? 0.22 : 0.0});
   const mesh = new THREE.Mesh(g, terrainMat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
@@ -867,7 +973,7 @@ scene.add(water);
    aSeed: 0-9 homes, 10-19 workplaces, 20-29 round-the-clock (hospitals). */
 const cityU = {
   uNight:{value:0}, uLit:{value:0.08}, uLitW:{value:0.08}, uLit24:{value:0.30},
-  uWarm:{value:new THREE.Vector3(1.0, 0.72, 0.38)},
+  uWarm:{value:new THREE.Vector3(1.0, 0.72, 0.38)}, uGlowK:{value:2.6},
 };
 const LIT_HOME = 0, LIT_WORK = 10, LIT_24 = 20;
 
@@ -940,12 +1046,13 @@ function withWindows(mat){
     sh.uniforms.uLitW = cityU.uLitW;
     sh.uniforms.uLit24 = cityU.uLit24;
     sh.uniforms.uWarm = cityU.uWarm;
+    sh.uniforms.uGlowK = cityU.uGlowK;
     sh.vertexShader = 'attribute float aSeed;\nvarying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\n' + sh.vertexShader;
     sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vSeed = aSeed;
       vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vWN = normalize(mat3(modelMatrix) * objectNormal);`);
-    sh.fragmentShader = 'varying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\nuniform float uNight;\nuniform float uLit;\nuniform float uLitW;\nuniform float uLit24;\nuniform vec3 uWarm;\n' + sh.fragmentShader;
+    sh.fragmentShader = 'varying float vSeed;\nvarying vec3 vWP;\nvarying vec3 vWN;\nuniform float uNight;\nuniform float uLit;\nuniform float uLitW;\nuniform float uLit24;\nuniform vec3 uWarm;\nuniform float uGlowK;\n' + sh.fragmentShader;
     sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float winLit = 0.0;
       if (vSeed > 0.0005) {
@@ -1006,7 +1113,7 @@ function withWindows(mat){
         winLit = win * step(hsh, thr) * flick;
       }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      totalEmissiveRadiance += uWarm * winLit * uNight * 2.6;`);
+      totalEmissiveRadiance += uWarm * winLit * uNight * uGlowK;`);
   };
   mat.customProgramCacheKey = () => 'cityWindows';
   return mat;
@@ -1421,10 +1528,11 @@ function batchGeometry(b){
   g.setIndex(new THREE.BufferAttribute(b.idx.slice(0, b.ic), 1));
   return g;
 }
-function attach(g, color, seed){
+function attach(g, color, seed, raw){
   const n = g.attributes.position.count;
   const c = new Float32Array(n * 3), s = new Float32Array(n), f = new Float32Array(n);
-  const r0 = s2l(color[0]), g0 = s2l(color[1]), b0 = s2l(color[2]);
+  const _a = raw ? color : artC(color);
+  const r0 = s2l(_a[0]), g0 = s2l(_a[1]), b0 = s2l(_a[2]);
   for(let i = 0; i < n; i++){ c[i*3] = r0; c[i*3+1] = g0; c[i*3+2] = b0; s[i] = seed; f[i] = curFocus; }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   g.setAttribute('aSeed', new THREE.BufferAttribute(s, 1));
@@ -1435,7 +1543,11 @@ function attach(g, color, seed){
 function box(b, w, h, d, x, y, z, color, seed, ry){
   grow(b, 24, 36);
   const base = b.v, s = seed || 0;
-  const r = s2l(color[0]), gc = s2l(color[1]), bc = s2l(color[2]);
+  /* The glow batch holds lights, not surfaces, and lights keep their colour:
+     run a neon tube through the art transform and it comes out crushed to the
+     same dim mauve as the wall behind it. */
+  const _a = b === glowParts ? color : artC(color);
+  const r = s2l(_a[0]), gc = s2l(_a[1]), bc = s2l(_a[2]);
   const ca = ry ? Math.cos(ry) : 1, sa = ry ? Math.sin(ry) : 0;
   let o = base * 3;
   for(let i = 0; i < 24; i++){
@@ -1461,18 +1573,19 @@ function tiltBox(list, w, h, d, x, y, z, color, seed, rz, ry){
   if(rz) g.rotateZ(rz);
   if(ry) g.rotateY(ry);
   g.translate(x, y, z);
-  list.geo.push(attach(g, color, seed || 0));
+  list.geo.push(attach(g, color, seed || 0, list === glowParts));
 }
 function cyl(list, rt, rb, h, seg, x, y, z, color, seed, ry){
   const g = new THREE.CylinderGeometry(rt, rb, h, seg, 1);
   if(ry) g.rotateY(ry);
   g.translate(x, y, z);
-  list.geo.push(attach(g, color, seed || 0));
+  list.geo.push(attach(g, color, seed || 0, list === glowParts));
 }
 function slab(b, w, d, x, y, z, color){
   grow(b, 4, 6);
   const base = b.v, hw = w / 2, hd = d / 2;
-  const r = s2l(color[0]), gc = s2l(color[1]), bc = s2l(color[2]);
+  const _a = b === glowParts ? color : artC(color);
+  const r = s2l(_a[0]), gc = s2l(_a[1]), bc = s2l(_a[2]);
   const xs = [x-hw, x+hw, x+hw, x-hw], zs = [z-hd, z-hd, z+hd, z+hd];
   let o = base * 3;
   for(let i = 0; i < 4; i++){
@@ -1551,7 +1664,8 @@ function litBand(type){
    budget because of it. */
 function addTree(x, y, z, s, tint, bulk){
   const g = 0.55 + rnd() * 0.5;
-  const c = tint || [lerp(0.22,0.40,rnd()) , lerp(0.42,0.62,rnd()), lerp(0.20,0.32,rnd())];
+  const c = ART.dark ? pick(NEON_TREE)
+          : tint || [lerp(0.22,0.40,rnd()) , lerp(0.42,0.62,rnd()), lerp(0.20,0.32,rnd())];
   trees.push({x, y, z, s, c, g, f: curFocus, b: bulk ? 1 : 0});
 }
 
@@ -1649,6 +1763,48 @@ function styleDetail(L, style, c, w, d, y0, h, trimC, base, isHome){
   }
 }
 
+/* ---- neon outlines -------------------------------------------------------
+   The thing that makes a cyberpunk skyline is not that the buildings are dark —
+   it is that their edges are drawn in light. Every building gets its corners
+   and its floor lines picked out in tube neon, on the glow batch so it brightens
+   with the rest of the night lighting.
+
+   Colours are chosen from the building's own seed so a street is a mix of
+   hues rather than one, and stay one-channel-dominant: a neon that is bright in
+   all three channels tone-maps to white and stops being neon. */
+const NEON = [[0.06, 2.60, 3.20], [3.10, 0.08, 1.55], [0.40, 0.30, 3.30],
+              [3.20, 0.16, 0.55], [0.12, 2.95, 1.75], [2.20, 0.22, 3.10]];
+function neonOutline(o, cx, cz, w, d, y0, y1, seedF){
+  if(!ART.dark) return;
+  const G = glowParts;
+  const col = NEON[Math.floor(seedF * NEON.length) % NEON.length];
+  const alt = NEON[(Math.floor(seedF * NEON.length) + 3) % NEON.length];
+  const T = 0.85, h = y1 - y0;          // a tube you can read from across the city
+  if(h < 1.5 || w < 2 || d < 2) return;
+  // vertical tubes up the four corners
+  for(const sx of [-1, 1]) for(const sz of [-1, 1])
+    box(G, T, h, T, cx + sx * (w / 2 + 0.36), y0 + h / 2, cz + sz * (d / 2 + 0.36), col, 0);
+  /* A band round the top and another at the foot. The top one has to clear the
+     cornice, which stands 0.4 m proud of the wall — hang it at the same 0.18 m
+     as the corner tubes and it is inside the cornice, invisible and fighting
+     it. */
+  for(const [y, out] of [[y1 - 0.35, 0.62], [y0 + 0.25, 0.18]]){
+    box(G, w + 2.2, T, T, cx, y, cz - d / 2 - out, alt, 0);
+    box(G, w + 2.2, T, T, cx, y, cz + d / 2 + out, alt, 0);
+    box(G, T, T, d + 2.2, cx - w / 2 - out, y, cz, alt, 0);
+    box(G, T, T, d + 2.2, cx + w / 2 + out, y, cz, alt, 0);
+  }
+  // string courses up the height, far enough apart to read as lines not stripes
+  const every = 18, n = Math.min(6, Math.floor(h / every));
+  for(let i = 1; i <= n; i++){
+    const y = y0 + h * i / (n + 1);
+    box(G, w + 0.9, 0.46, 0.46, cx, y, cz - d / 2 - 0.24, col, 0);
+    box(G, w + 0.9, 0.46, 0.46, cx, y, cz + d / 2 + 0.24, col, 0);
+    box(G, 0.46, 0.46, d + 0.9, cx - w / 2 - 0.24, y, cz, col, 0);
+    box(G, 0.46, 0.46, d + 0.9, cx + w / 2 + 0.24, y, cz, col, 0);
+  }
+}
+
 function buildTower(o, L, seedF){
   const T = TYPES[o.type];
   const c = objCentre(o);
@@ -1687,6 +1843,8 @@ function buildTower(o, L, seedF){
   for(let i = 0; i < segs; i++){ const v = Math.pow(style === 1 ? 0.66 : 0.72, i); fr.push(v); acc += v; }
   for(let i = 0; i < segs; i++) fr[i] /= acc;
 
+  neonOutline(o, c.x, c.z, PW, PD, 0.4, podH, seedF);
+
   let yy = podH, w = W, d = D;
   const remain = Math.max(STORY, H - podH);
   for(let i = 0; i < segs; i++){
@@ -1694,6 +1852,7 @@ function buildTower(o, L, seedF){
     box(L, w, h, d, c.x, yy + h / 2, c.z, base, sA);
     styleDetail(L, style, c, w, d, yy, h, trimC, base, isHome);
     if(corn > 0) box(L, w + 0.8, corn, d + 0.8, c.x, yy + h, c.z, trimC, 0);
+    neonOutline(o, c.x, c.z, w, d, yy, yy + h, seedF + i * 0.17);
     o._capW = w; o._capD = d; o._capY = yy + h;   // the topmost segment as actually drawn
     yy += h;
     w *= taper; d *= taper;
@@ -1756,6 +1915,9 @@ const SHOP_HUES = [
   [1.00, 0.86, 0.62], [1.00, 0.78, 0.50], [0.98, 0.92, 0.80],
   [0.85, 0.95, 0.92], [1.00, 0.70, 0.58], [0.92, 0.88, 1.00],
 ];
+/* Shopfront neon: strong hue, low total brightness — a sign, not a floodlight. */
+const NEON_SHOP = [[1.30, 0.10, 0.62], [0.08, 1.10, 1.30], [1.20, 0.55, 0.06],
+                   [0.55, 0.12, 1.35], [0.10, 1.25, 0.70], [1.30, 0.16, 1.20]];
 const AWNING = [
   [0.78, 0.32, 0.26], [0.22, 0.48, 0.44], [0.86, 0.66, 0.28],
   [0.36, 0.42, 0.62], [0.74, 0.74, 0.70],
@@ -1776,9 +1938,32 @@ function buildShopfronts(L, c, PW, PD, seedF){
       const t = -sd.len / 2 + (i + 0.5) * uw;
       const px = c.x + (sd.ax === 'x' ? t : sd.nx * sd.off);
       const pz = c.z + (sd.ax === 'x' ? sd.nz * sd.off : t);
-      const hue = SHOP_HUES[Math.floor(rnd() * SHOP_HUES.length)];
+      const hue = ART.dark ? NEON_SHOP[Math.floor(rnd() * NEON_SHOP.length)]
+                           : SHOP_HUES[Math.floor(rnd() * SHOP_HUES.length)];
       const gw = uw * 0.82;
-      if(sd.ax === 'x') box(glowParts, gw, y1 - y0, 0.5, px, (y0 + y1) / 2, pz + sd.nz * 0.12, hue, 0);
+      if(ART.dark){
+        /* A neon shopfront is a lit sign and a lit edge round dark glass, not a
+           glowing rectangle the size of the window. Left as a full panel it is
+           the brightest thing at street level and the whole podium reads as a
+           row of lightboxes. */
+        const dark = [0.05, 0.06, 0.09], hh = y1 - y0;
+        if(sd.ax === 'x'){
+          box(L, gw, hh, 0.34, px, (y0 + y1) / 2, pz + sd.nz * 0.12, dark, 0);
+          box(glowParts, gw, 0.26, 0.44, px, y1 - 0.20, pz + sd.nz * 0.16, hue, 0);   // header
+          box(glowParts, gw, 0.20, 0.44, px, y0 + 0.16, pz + sd.nz * 0.16, hue, 0);   // sill
+          for(const q of [-1, 1])
+            box(glowParts, 0.24, hh - 0.5, 0.44, px + q * gw / 2, (y0 + y1) / 2, pz + sd.nz * 0.16, hue, 0);
+          box(glowParts, gw * 0.42, 0.55, 0.30, px, y1 + 1.15, pz + sd.nz * 0.5, hue, 0);  // the sign itself
+        } else {
+          box(L, 0.34, hh, gw, px + sd.nx * 0.12, (y0 + y1) / 2, pz, dark, 0);
+          box(glowParts, 0.44, 0.26, gw, px + sd.nx * 0.16, y1 - 0.20, pz, hue, 0);
+          box(glowParts, 0.44, 0.20, gw, px + sd.nx * 0.16, y0 + 0.16, pz, hue, 0);
+          for(const q of [-1, 1])
+            box(glowParts, 0.44, hh - 0.5, 0.24, px + sd.nx * 0.16, (y0 + y1) / 2, pz + q * gw / 2, hue, 0);
+          box(glowParts, 0.30, 0.55, gw * 0.42, px + sd.nx * 0.5, y1 + 1.15, pz, hue, 0);
+        }
+      }
+      else if(sd.ax === 'x') box(glowParts, gw, y1 - y0, 0.5, px, (y0 + y1) / 2, pz + sd.nz * 0.12, hue, 0);
       else              box(glowParts, 0.5, y1 - y0, gw, px + sd.nx * 0.12, (y0 + y1) / 2, pz, hue, 0);
       // mullions
       const mull = shade(FACADE.warmGrey, 0.5);
@@ -2175,6 +2360,7 @@ function buildSportsMega(o, L, seedF){
     box(L, W * 0.15, yy, D * 0.15, c.x + sx * (W / 2 + CORE - W * 0.075), yy / 2,
         c.z + sz * (D / 2 + CORE - D * 0.075), pier, 0);
   o._capW = W; o._capD = D; o._capY = yy;
+  neonOutline(o, c.x, c.z, W, D, FH * 0.85, yy, seedF);
 
   // open-air courts on the roof, floodlit, behind a high fence
   const rY = yy + 0.9;                          // the top of the roof slab, not inside it
@@ -2245,6 +2431,7 @@ function buildFarm(o, L, seedF){
     yy += STORY;
   }
   o._capW = W; o._capD = D; o._capY = yy;
+  neonOutline(o, c.x, c.z, W, D, STORY * 1.15, yy, seedF);
 
   // glasshouses, water tanks and a lift overrun on top
   box(L, W, 0.8, D, c.x, yy + 0.4, c.z, frame, 0);
@@ -2485,7 +2672,7 @@ function buildFactory(o, L, seedF){
 function disc(list, r, x, y, z, color, seg){
   const g = new THREE.CircleGeometry(r, seg || 18).rotateX(-Math.PI / 2);
   g.translate(x, y, z);
-  list.geo.push(attach(g, color, 0));
+  list.geo.push(attach(g, color, 0, list === glowParts));
 }
 
 const TRAM_LAT = 2.35;
@@ -2522,6 +2709,11 @@ function trunkCell(L, o, x, z, doX, doZ){
       if(doX) box(L, 1.4, 0.03, 0.20, x + t, 0.17, z + sd * 3.2, LINE, 0);
       else    box(L, 0.20, 0.03, 1.4, x + sd * 3.2, 0.17, z + t, LINE, 0);
     }
+  }
+  // a lit edge strip down each kerb — the corridors should be visible from above
+  if(ART.dark) for(const sd of [-1, 1]){
+    if(doX) box(glowParts, CELL + 0.1, 0.14, 0.34, x, 0.22, z + sd * 4.75, [0.12, 1.60, 1.95], 0);
+    else    box(glowParts, 0.34, 0.14, CELL + 0.1, x + sd * 4.75, 0.22, z, [0.12, 1.60, 1.95], 0);
   }
   // lamps and street trees on the kerbs, closer together than an ordinary path
   const side = ((o.gx * 3 + o.gz) & 2) ? 1 : -1;
@@ -3151,7 +3343,7 @@ function buildStreets(L){
 const state = {
   mode: 'view', tool: null, speed: 1, hour: 7.2, simTime: 7.2, seed: 1, metro: false, size: 2,
   objects: [], lines: [], selected: -1, selLine: -1, population: 0, jobs: 0,
-  pplSize: 1.0, density: 1, focus: null, layout: 'standard', dens: 'verydense',
+  pplSize: 1.0, density: 1, focus: null, layout: 'standard', dens: 'verydense', art: 'normal',
 };
 /* A focus is {label, types:Set}. Streets and tram track always stay lit so the
    highlighted things still sit in a readable city. */
@@ -3336,7 +3528,7 @@ function removeObject(idx){
 
 /* --- meshes --------------------------------------------------------------- */
 let cityMesh = null, detailMesh = null, trunkMesh = null, canopyMesh = null;
-let bulkTrunkMesh = null, bulkCanopyMesh = null;
+let bulkTrunkMesh = null, bulkCanopyMesh = null, haloMesh = null;
 let lampMesh = null, poolMesh = null, pickMesh = null, shopMesh = null, lakeMesh = null, signMesh = null;
 
 function swapMesh(old, list, mat, cast, receive){
@@ -3369,8 +3561,41 @@ const canopyGeo = mergeGeometries([
    before for the same cost. */
 const bulkTrunkGeo = new THREE.CylinderGeometry(0.21, 0.32, 2.6, 3, 1, true).translate(0, 1.3, 0);
 const bulkCanopyGeo = new THREE.IcosahedronGeometry(1.95, 0).translate(0, 3.7, 0);
+/* The cyberpunk tree is a machine: a chrome stem carrying flat angular panels
+   instead of a crown of leaves. Squashed octahedra read as panels from any
+   angle and cost eight triangles apiece — cheaper than the organic canopy, not
+   dearer, which matters when there are a hundred and forty thousand of them. */
+const roboCanopyGeo = mergeGeometries([
+  new THREE.OctahedronGeometry(1.60, 0).scale(1, 0.26, 1).translate(0, 3.6, 0),
+  new THREE.OctahedronGeometry(1.10, 0).scale(1, 0.24, 1).translate(0.85, 4.8, -0.40),
+  new THREE.OctahedronGeometry(0.90, 0).scale(1, 0.24, 1).translate(-0.95, 4.3, 0.55),
+], false);
+const roboBulkCanopyGeo = new THREE.OctahedronGeometry(2.05, 0).scale(1, 0.30, 1).translate(0, 3.7, 0);
 const matTrunk = new THREE.MeshStandardMaterial({color:0x6b4f38, roughness:0.95});
 const matCanopy = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.88, flatShading:true});
+/* Panels light themselves. A standard material lit by a dim smoggy sun would
+   render them as dark grey shapes, which is the opposite of the point. */
+const matCanopyLit = new THREE.MeshBasicMaterial({color:0xffffff, vertexColors:true, fog:false});
+/* Fog off. A light source that dims with distance the way a wall does stops
+   looking like a light source — and cyberpunk fog closes in at 150 m, so with
+   fog on the halos vanish a couple of streets away, which is exactly where the
+   glow was wanted. */
+const matHalo = new THREE.MeshBasicMaterial({color:0xffffff, vertexColors:true, transparent:true,
+  opacity:0.55, blending:THREE.AdditiveBlending, depthWrite:false, fog:false});
+/* The halo is its own geometry rather than the canopy scaled up. The canopy's
+   height is baked into the geometry as a translate, so scaling the *instance*
+   by 2.45 raises it by 2.45 as well and the halo ends up floating six to twelve
+   metres above the tree — bright, and nowhere near the thing it belongs to.
+   Bake the size in and instance it at exactly the canopy's own scale. */
+const haloGeo = new THREE.OctahedronGeometry(2.05 * 2.45, 0).scale(1, 0.30, 1).translate(0, 3.7, 0);
+const treePoolGeo = new THREE.CircleGeometry(4.6, 12).rotateX(-Math.PI / 2);
+const matTreePool = new THREE.MeshBasicMaterial({color:0xffffff, vertexColors:true, transparent:true,
+  opacity:0.34, blending:THREE.AdditiveBlending, depthWrite:false, fog:false});
+let treePoolMesh = null;
+/* Above 1.0 on purpose. A canopy at full-scale colour tone-maps to a dull
+   pastel; it has to be over-driven to come out of the renderer glowing. */
+const NEON_TREE = [[0.14,1.70,1.95], [1.95,0.16,1.05], [0.70,0.26,2.00],
+                   [0.22,0.60,2.00], [1.95,0.42,1.35], [0.34,1.90,1.45]];
 
 /* Drawing trees is the single most expensive thing in the scene, so there is a
    hard ceiling on them. Spend it per square metre of wood rather than
@@ -3419,7 +3644,7 @@ function buildTreeMeshes(){
   const build = (list, tg, cg) => {
     if(!list.length) return [null, null];
     const tm = new THREE.InstancedMesh(tg, matTrunk, list.length);
-    const cm = new THREE.InstancedMesh(cg, matCanopy, list.length);
+    const cm = new THREE.InstancedMesh(cg, ART.dark ? matCanopyLit : matCanopy, list.length);
     cm.castShadow = true; tm.castShadow = true;
     cm.receiveShadow = false;
     for(let i = 0; i < list.length; i++){
@@ -3447,8 +3672,47 @@ function buildTreeMeshes(){
     scene.add(tm, cm);
     return [tm, cm];
   };
-  [trunkMesh, canopyMesh] = build(fine, trunkGeo, canopyGeo);
-  [bulkTrunkMesh, bulkCanopyMesh] = build(wood, bulkTrunkGeo, bulkCanopyGeo);
+  [trunkMesh, canopyMesh] = build(fine, trunkGeo, ART.dark ? roboCanopyGeo : canopyGeo);
+  [bulkTrunkMesh, bulkCanopyMesh] = build(wood, bulkTrunkGeo, ART.dark ? roboBulkCanopyGeo : bulkCanopyGeo);
+  /* Without a bloom pass a bright surface is just a bright surface. A soft
+     additive shell around each canopy is what turns it into something that
+     appears to give off light. Only the specimen trees get one — there are at
+     most twenty-six thousand of those, against a hundred and forty thousand in
+     the woods, where sheer number does the same job for nothing. */
+  for(const x of [haloMesh, treePoolMesh]) if(x){ scene.remove(x); x.dispose(); }
+  haloMesh = treePoolMesh = null;
+  if(ART.dark && fine.length){
+    haloMesh = new THREE.InstancedMesh(haloGeo, matHalo, fine.length);   // 8 triangles, not 24
+    treePoolMesh = new THREE.InstancedMesh(treePoolGeo, matTreePool, fine.length);
+    const hm = new THREE.Matrix4(), hq = new THREE.Quaternion(),
+          hp = new THREE.Vector3(), hs = new THREE.Vector3();
+    for(let i = 0; i < fine.length; i++){
+      const t = fine[i];
+      hp.set(t.x, t.y, t.z);
+      hq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (i * 2.399) % 6.283);
+      const sc = t.s * 1.15;                 // the canopy's own scale, not a larger one
+      hs.set(sc, sc * t.g * 1.5, sc);
+      hm.compose(hp, hq, hs);
+      haloMesh.setMatrixAt(i, hm);
+      /* The light a tree throws on the ground under it. Without this a canopy
+         is a bright object rather than something lighting its surroundings,
+         which is the difference between "coloured" and "glowing". */
+      hm.makeScale(sc * 1.5, 1, sc * 1.5);
+      hm.setPosition(t.x, (t.y || 0) + 0.20, t.z);
+      treePoolMesh.setMatrixAt(i, hm);
+      col.setRGB(s2l(Math.min(1, t.c[0])), s2l(Math.min(1, t.c[1])), s2l(Math.min(1, t.c[2])));
+      haloMesh.setColorAt(i, col);
+      treePoolMesh.setColorAt(i, col);
+    }
+    for(const x of [haloMesh, treePoolMesh]){
+      x.instanceMatrix.needsUpdate = true;
+      if(x.instanceColor) x.instanceColor.needsUpdate = true;
+      x.frustumCulled = false;
+      scene.add(x);
+    }
+    haloMesh.renderOrder = 4;
+    treePoolMesh.renderOrder = 3;
+  }
 }
 
 const lampBulbGeo = new THREE.SphereGeometry(0.42, 7, 5);
@@ -3575,6 +3839,105 @@ function buildFocusMarks(){
 const METRO_COLS = [[0.24,0.60,1.0],[1.0,0.44,0.34],[0.32,0.86,0.56],[1.0,0.80,0.28],[0.72,0.50,1.0]];
 const matMetro = new THREE.MeshBasicMaterial({vertexColors:true, depthTest:false, transparent:true, opacity:0.97});
 let metroMesh = null;
+/* Where the vehicles are. A subway is invisible by nature and a tram is a small
+   body in a big city, so in the transit overlay both get the same treatment: a
+   bead in the line's own colour riding the drawn line, brightened so it reads
+   against the bar it runs on and haloed so it still shows over a busy street.
+   Same language for both services, which is the point of an overlay. */
+const matVehDot = new THREE.MeshBasicMaterial({vertexColors:true, depthTest:false,
+  transparent:true, opacity:0.96, toneMapped:false});
+const matVehHalo = new THREE.MeshBasicMaterial({vertexColors:true, depthTest:false,
+  transparent:true, opacity:0.30, blending:THREE.AdditiveBlending, depthWrite:false});
+/* `vertexColors` makes the shader declare a colour attribute whether or not the
+   geometry has one, and an unbound attribute reads as (0,0,0) — so a sphere
+   with no colours comes out black however carefully the instance colour is set.
+   Give them a white one to be multiplied by. */
+const whiteGeo = (g) => {
+  const n = g.attributes.position.count, c = new Float32Array(n * 3).fill(1);
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return g;
+};
+const vehDotGeo = whiteGeo(new THREE.SphereGeometry(4.2, 14, 10));
+const vehHaloGeo = whiteGeo(new THREE.SphereGeometry(8.4, 12, 8));
+let metroDotMesh = null, metroHaloMesh = null, tramDotMesh = null, tramHaloMesh = null;
+
+function makeDots(fleet, paths){
+  const kill = m => { if(m){ scene.remove(m); m.dispose(); } };
+  if(!fleet.length) return [null, null];
+  const dot = new THREE.InstancedMesh(vehDotGeo, matVehDot, fleet.length);
+  const halo = new THREE.InstancedMesh(vehHaloGeo, matVehHalo, fleet.length);
+  const c = new THREE.Color();
+  fleet.forEach((tr, i) => {
+    const L = state.lines[tr.li];
+    const col = METRO_COLS[((L ? L.c : (tr.c | 0)) | 0) % METRO_COLS.length];
+    c.setRGB(s2l(Math.min(1, col[0] * 1.3)), s2l(Math.min(1, col[1] * 1.3)), s2l(Math.min(1, col[2] * 1.3)));
+    dot.setColorAt(i, c);
+    halo.setColorAt(i, c);
+  });
+  for(const m of [dot, halo]){
+    if(m.instanceColor) m.instanceColor.needsUpdate = true;
+    m.frustumCulled = false;
+    m.visible = false;
+    scene.add(m);
+  }
+  dot.renderOrder = 1001; halo.renderOrder = 1000;
+  return [dot, halo];
+}
+function buildVehicleDots(){
+  for(const m of [metroDotMesh, metroHaloMesh, tramDotMesh, tramHaloMesh])
+    if(m){ scene.remove(m); m.dispose(); }
+  [metroDotMesh, metroHaloMesh] = makeDots(metros);
+  [tramDotMesh, tramHaloMesh] = makeDots(trams);
+}
+/* The overlay is on when I have asked for it. In the journey planner the beads
+   are useful — you can watch your train coming — but the whole network of lines
+   is not: that is the point of having asked for four routes. So there they ride
+   just above the drawn route instead of up on the line bars. */
+const overlayOn = () => !!(state.metro || isLineTool());
+const dotsOn = () => overlayOn() || !!(trip.on && trip.routes);
+/* In the planner, only the services the shown routes actually use. A map of
+   every vehicle in the city is the transit view; this is meant to be an answer
+   to one question. */
+function dotLines(){
+  if(overlayOn() || !trip.routes) return null;             // null means "all of them"
+  const keep = new Set();
+  for(const k of ['tram', 'subway']){
+    const r = trip.routes[k];
+    for(const st of (r && r.steps) || []) if(st.k === 'ride' && st.line !== undefined)
+      keep.add(state.lines.indexOf(st.line));
+  }
+  return keep;
+}
+const _vd = new THREE.Matrix4();
+function placeDots(fleet, dot, halo, baseY, lift, keep){
+  if(!dot) return;
+  const on = dotsOn();
+  dot.visible = halo.visible = on;
+  if(!on) return;
+  const over = overlayOn();
+  fleet.forEach((tr, i) => {
+    const L = state.lines[tr.li];
+    if(keep && !keep.has(tr.li)){                 // not part of this journey: park it away
+      _vd.makeScale(0.0001, 0.0001, 0.0001);
+      _vd.setPosition(0, -900, 0);
+      dot.setMatrixAt(i, _vd); halo.setMatrixAt(i, _vd);
+      return;
+    }
+    const y = over ? baseY + ((L ? L.c : 0) | 0) * 0.9 + lift : 3.0;
+    const pulse = tr.wait > 0 ? 1.4 : 1;          // fatter while it stands at a platform
+    _vd.makeScale(pulse, pulse, pulse);
+    _vd.setPosition(tr.wx || 0, y, tr.wz || 0);
+    dot.setMatrixAt(i, _vd);
+    halo.setMatrixAt(i, _vd);
+  });
+  dot.instanceMatrix.needsUpdate = true;
+  halo.instanceMatrix.needsUpdate = true;
+}
+function updateVehicleDots(){
+  const keep = dotLines();
+  placeDots(metros, metroDotMesh, metroHaloMesh, 9, 0.4, keep);   // on the raised subway bars
+  placeDots(trams, tramDotMesh, tramHaloMesh, 2.4, 1.3, keep);    // just above the tram lines
+}
 function buildMetro(){
   if(metroMesh){ scene.remove(metroMesh); metroMesh.geometry.dispose(); metroMesh = null; }
   const edges = G.metro || [];
@@ -3614,8 +3977,10 @@ function buildMetro(){
     if(ax === 'x' || ax === 'both') box(B, CELL + 0.2, 0.55, cfg.w, x, cfg.y, z, cfg.c, 0);
     if(ax === 'z' || ax === 'both') box(B, cfg.w, 0.55, CELL + 0.2, x, cfg.y, z, cfg.c, 0);
   }
-  edges.forEach(([a, b, ci, li]) => {
-    const x0 = G.x[a], z0 = G.z[a], x1 = G.x[b], z1 = G.z[b];
+  edges.forEach(([a, b, ci, li, sa, sb]) => {
+    // draw between the platforms, not between the street intersections near them
+    const x0 = sa ? wx(sa.gx) : G.x[a], z0 = sa ? wz(sa.gz) : G.z[a];
+    const x1 = sb ? wx(sb.gx) : G.x[b], z1 = sb ? wz(sb.gz) : G.z[b];
     const len = Math.hypot(x1 - x0, z1 - z0);
     const ry = Math.atan2(-(z1 - z0), x1 - x0);
     const sel = li === state.selLine;
@@ -4046,13 +4411,47 @@ const MODE_SPEED = {walk:   {walk:1, park:1.60, path:1.85, bike:1.45, tram:0.45,
                     bike:   {walk:1, park:1.35, path:1.30, bike:2.60, tram:0.50, trunk:3.20, subway:0.02},
                     transit:{walk:1, park:1.00, path:1.05, bike:1.60, tram:4.20, trunk:5.40, subway:9},
                     /* laying track: shortest street route, no preferences */
-                    rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, trunk:1.00, subway:0.02}};
-const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, trunk:3.6, subway:7.0};
+                    rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, trunk:1.00, subway:0.02},
+                    /* the journey planner asks the two rail questions separately:
+                       "best I can do by tram" and "best I can do by underground",
+                       so each profile has to make the other mode unattractive. */
+                    /* Riding on bike paths and arterial cycle lanes, wheeling it a
+                       short way at either end to reach one. Ten to one against
+                       walking: enough to keep the route on the network without
+                       sending anyone on an absurd detour to touch a cycle lane. */
+                    bikeonly: {walk:0.25, park:0.25, path:0.28, bike:2.60, trunk:3.20, tram:0.25, subway:0.004},
+                    tramride: {walk:1, park:1.00, path:1.05, bike:1.30, tram:4.20, trunk:5.40, subway:0.004},
+                    metroride:{walk:1, park:1.00, path:1.05, bike:1.10, tram:0.60, trunk:0.90, subway:9},
+                    /* Milder versions of the two. The router minimises weighted
+                       distance, not time, so a strong rail preference will
+                       happily send somebody thirty kilometres round the city to
+                       use a subway for a two-hundred-metre errand — the ride is
+                       "cheap" per metre. Searching both weightings and keeping
+                       whichever is genuinely quicker fixes that without needing
+                       a full time-based multi-modal search. */
+                    tramride2: {walk:1, park:1.00, path:1.05, bike:1.30, tram:1.90, trunk:2.30, subway:0.004},
+                    metroride2:{walk:1, park:1.00, path:1.05, bike:1.10, tram:0.60, trunk:0.90, subway:2.6}};
+/* The subway multiplier is what a rider covers while they are down the tunnel
+   and out of sight. At 7 it worked out slower than a tram, which is the wrong
+   way round for an underground and made it lose every journey comparison it
+   was ever asked about. At 22 it runs at about 58 km/h, against the tram's 41. */
+const TRAM_MS = 11.5;        // the tram's own speed, metres per second
+const TRAM_DWELL = 9;        // seconds at a stop — long enough to be caught at any clock speed
+const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, trunk:3.6, subway:22.0};
 /* How fast an agent *looks* like it's moving. Pace is a property of the person
    now — a cyclist carries their own speed — so this only has to handle the
    subway, where riders vanish into the tunnel and reappear at the far station. */
-function visSpeed(mode, kind){
-  return kind === 'subway' ? SEG_VIS_SPEED.subway : 1;
+function visSpeed(mode, kind, a){
+  const onTrip = a && a.trip, onService = a && a.tripRail;
+  if(onTrip && kind === 'bike') return RIDE_SPEED.bike / AGENT_BASE;
+  if(kind === 'subway') return onTrip ? RIDE_SPEED.subway / AGENT_BASE : SEG_VIS_SPEED.subway;
+  /* A traveller on a planned journey rides the *service*, not one particular
+     vehicle. Waiting for a real tram cannot work here: trams move at the
+     compressed `boost` pace, so in simulated time they crawl as the clock
+     speeds up, and a quoted three-minute wait turns into forty-seven minutes at
+     600x. They wait the timetable's worth and then run at line speed. */
+  if(onService && (kind === 'tram' || kind === 'trunk')) return TRAM_MS / AGENT_BASE;
+  return 1;
 }
 
 function nodeIdx(ix, iz){ return ix * NX + iz; }
@@ -4248,7 +4647,22 @@ function buildGraph(){
     return out;
   });
 
-  // subway: whatever lines I have drawn
+  /* Subway. There is nothing to draw — the tunnel is a straight run between
+     stations — but the *service* still has to exist as vehicles, or a passenger
+     has nothing to wait for and nothing to be carried by, and the journey
+     degenerates into a person walking along the line with the station standing
+     empty beside them. */
+  G.metroPaths = [];
+  for(const L of state.lines){
+    if(modeOf(L) !== 'subway') continue;
+    const pts = [];
+    for(const u of L.stops){
+      const st = stationByUid(u);
+      if(st) pts.push({x: st._cx !== undefined ? st._cx : wx(st.gx),
+                       z: st._cz !== undefined ? st._cz : wz(st.gz), stop: true, uid: u});
+    }
+    if(pts.length > 1) G.metroPaths.push({li: state.lines.indexOf(L), c: L.c | 0, pts});
+  }
   G.metro = [];
   for(const L of state.lines){
     if(modeOf(L) !== 'subway') continue;
@@ -4257,7 +4671,13 @@ function buildGraph(){
       G.linked.add(L.stops[i]); G.linked.add(L.stops[i + 1]);
       if(a === undefined || b === undefined || a === b) continue;
       const len = Math.hypot(G.x[a] - G.x[b], G.z[a] - G.z[b]);
-      G.metro.push([a, b, L.c | 0, state.lines.indexOf(L)]);
+      /* Carry the stops as well as the lattice nodes. The graph has to route on
+         nodes, but a node is the nearest street *intersection* to a station and
+         can be half a block away — draw the line between nodes and it ends a few
+         cells short of the station it is supposed to serve, which is exactly
+         what it looks like. */
+      G.metro.push([a, b, L.c | 0, state.lines.indexOf(L),
+                    stationByUid(L.stops[i]), stationByUid(L.stops[i + 1])]);
       G.adj[a].push({to:b, len, kind:'subway'});
       G.adj[b].push({to:a, len, kind:'subway'});
     }
@@ -4642,7 +5062,8 @@ function refreshAgents(){
   const pickWork = weightedPicker(works, works.map(o => capacityOf(o).jobs));
 
   rng = mulberry32(state.seed * 31 + 991);
-  while(agents.length > want) agents.pop();
+  // never cull the traveller out from under the camera following them
+  while(agents.length > want && !agents[agents.length - 1].trip) agents.pop();
   while(agents.length < want){
     const a = {};
     initAgent(a, pickHome, pickWork);
@@ -4799,9 +5220,22 @@ function findTramLeg(ax, az, bx, bz){
   return best;
 }
 /* A tram of this line, dwelling at our stop, headed the way we want to go. */
+/* A tram is boardable while it is at the stop — and "at the stop" has to mean
+   near it, not exactly parked on the waypoint. Now that trams keep true
+   simulated time, a ten-second dwell is shorter than one frame at 600x, so a
+   passenger checking for `atStop` sees an empty platform however many trams go
+   through: the vehicle arrives and departs between two frames. */
 function tramToBoard(pi, fromI, toI){
   for(const tr of trams){
-    if(tr.pi !== pi || tr.atStop !== fromI) continue;
+    if(tr.pi !== pi) continue;
+    /* Widen the window as the clock speeds up. At 600x a frame is nearly ten
+       simulated seconds, so a tram can arrive, dwell and leave between two of
+       them; a passenger who insists on the vehicle being exactly at the
+       waypoint watches an empty platform while the service runs perfectly. */
+    const win = state.speed > 100 ? 0.9 : state.speed > 20 ? 0.45 : 0.15;
+    const near = tr.atStop === fromI ||
+      (tr.pts && tr.pts[fromI] && Math.abs(tr.t - fromI) < win);
+    if(!near) continue;
     if((tr.load || 0) >= TRAM_SEATS) continue;
     if(toI > fromI ? tr.dir > 0 : tr.dir < 0) return tr;
   }
@@ -4810,6 +5244,7 @@ function tramToBoard(pi, fromI, toI){
 const TRAM_SEATS = 70;
 function leaveTram(a){
   if(a.tram){ a.tram.load = Math.max(0, (a.tram.load || 1) - 1); a.tram = null; }
+  a.metro = false;
 }
 /* Move an agent onto the next leg of its journey. */
 /* Give up on transit and walk the rest from wherever we are. */
@@ -4831,7 +5266,7 @@ function beginLeg(a, i){
   a.leg = i;
   const L = a.legs && a.legs[i];
   if(!L){ a.state = 'in'; a.hidden = true; return; }
-  if(L.k === 'tram'){
+  if(L.k === 'tram' || L.k === 'metro'){
     a.state = 'wait'; a.hidden = false; a.waitT = 0;
     a.x = L.ex + a.off * 0.5; a.z = L.ez + a.off * 0.35;
     return;
@@ -4851,7 +5286,7 @@ function startTrip(a, dest, purpose){
   const sz = a.state === 'in' && a.at ? a.at._ez : a.z;
   const d = Math.hypot(dest._ex - sx, dest._ez - sz);
   if(d < 6){ a.state = 'in'; a.at = dest; a.hidden = true; return; }
-  const mode = a.cyclist ? 'bike' : (d < 260 ? 'walk' : 'transit');
+  const mode = a.tripMode || (a.cyclist ? 'bike' : (d < 260 ? 'walk' : 'transit'));
   const fromN = a.state === 'in' && a.at ? a.at._node : nearestNode(sx, sz);
   const toN = dest._node;
   const px = [sx], pz = [sz], pk = [];
@@ -4888,7 +5323,14 @@ function startTrip(a, dest, purpose){
       ];
     }
   }
-  a.legs = legs || [{k:'walk', px, pz, pk}];
+  a.legs = (a.trip ? null : legs) || [{k:'walk', px, pz, pk}];
+  /* Only a traveller who chose a rail mode rides anything. Gate this on the
+     mode, not on the edge: a pedestrian walking down an arterial is on a
+     `trunk` edge, and without the check they board it and cover the whole walk
+     at tram speed — the same "the edge describes the street, not the person"
+     trap that the timing code has to dodge. */
+  a.boarded = 0; a.holdUntil = 0;
+  a.tripRail = !!(a.trip && RAIL_PROFILE[a.tripMode]);
   beginLeg(a, 0);
 }
 
@@ -4937,19 +5379,30 @@ function updateAgents(dt, hour, boost){
       a.x = sp0[0]; a.z = sp0[1]; a.y = a.home._roofY;
       a.mx = a.x; a.mz = a.z;
     }
-    const place = desiredPlace(a, hour);
-    const want = targetFor(a, place);
-    if(want !== a.dest) startTrip(a, want, place);
+    /* A traveller on a planned journey has one errand and no timetable; leave
+       the daily schedule alone for them or they turn round and go to work. */
+    if(!a.trip){
+      const place = desiredPlace(a, hour);
+      const want = targetFor(a, place);
+      if(want !== a.dest) startTrip(a, want, place);
+    }
 
+    /* Standing at the stop. The planner promised a wait, so serve one. */
     if(a.state === 'go' && a.px){
-      let move = AGENT_BASE * a.spd * boost * dt;
+      /* The crowd moves at `boost` = sqrt(speed), which deliberately under-
+         compensates so that at 600x nobody teleports. The side effect is that a
+         person covers less *simulated* ground the faster the clock runs — a
+         twenty-minute walk becomes a two-hour one at 64x. Fine for ambience,
+         wrong for a traveller whose journey time was just quoted: they move at
+         the city's true pace so the quote holds whatever the clock is doing. */
+      let move = AGENT_BASE * a.spd * (a.trip ? Math.max(state.speed, 0) : boost) * dt;
       let guard = 0;
       while(move > 0 && a.seg < a.px.length - 1 && guard++ < 40){
         const x0 = a.px[a.seg], z0 = a.pz[a.seg];
         const x1 = a.px[a.seg + 1], z1 = a.pz[a.seg + 1];
         const len = Math.hypot(x1 - x0, z1 - z0) || 0.001;
         const kind = a.pk[a.seg] || 'walk';
-        const sp = visSpeed(a.mode, kind);
+        const sp = visSpeed(a.mode, kind, a);
         const step = move * sp / len;
         a.t += step;
         if(a.t >= 1){ move = (a.t - 1) * len / sp; a.t = 0; a.seg++; }
@@ -4987,9 +5440,10 @@ function updateAgents(dt, hour, boost){
       a.hidden = false;
       const L = a.legs[a.leg];
       a.waitT += dt * Math.max(boost, 0.001);
-      const tr = tramToBoard(L.pi, L.fromI, L.toI);
+      const tr = L.k === 'metro' ? metroToBoard(L.pi, L.fromI, L.toI)
+                                 : tramToBoard(L.pi, L.fromI, L.toI);
       if(tr){
-        a.tram = tr; tr.load = (tr.load || 0) + 1;
+        a.tram = tr; a.metro = L.k === 'metro'; tr.load = (tr.load || 0) + 1;
         a.state = 'ride'; a.hidden = true;
       } else if(a.waitT > 260){
         walkRest(a);                          // nothing is coming — walk it instead
@@ -5000,16 +5454,18 @@ function updateAgents(dt, hour, boost){
     } else if(a.state === 'ride'){
       const tr = a.tram;
       const L = a.legs[a.leg];
-      if(!tr || trams.indexOf(tr) < 0){        // the line was redrawn under them
-        a.tram = null;
+      const fleet = a.metro ? metros : trams;
+      if(!tr || fleet.indexOf(tr) < 0){        // the line was redrawn under them
+        a.tram = null; a.metro = false;
         walkRest(a);
       } else {
         a.hidden = true;
         a.x = tr.wx !== undefined ? tr.wx : a.x;
         a.z = tr.wz !== undefined ? tr.wz : a.z;
+        if(tr.wang !== undefined){ a.hx = Math.sin(tr.wang); a.hz = Math.cos(tr.wang); }
         const here = tr.atStop >= 0 && tr.pts[tr.atStop];
         if(here && here.uid === L.toUid){
-          leaveTram(a);
+          leaveTram(a); a.metro = false;
           beginLeg(a, a.leg + 1);
         }
       }
@@ -5086,6 +5542,80 @@ const matTramBeam = new THREE.MeshBasicMaterial({color:0xffe0a8, transparent:tru
   depthWrite:false, blending:THREE.AdditiveBlending});
 let tramMesh = null, tramLampMesh = null, tramBeamMesh = null;
 const trams = [];
+const metros = [];   // subway trains: simulated, never drawn
+
+/* One train per two or three stations, so a platform is never a long wait. */
+function buildMetroVehicles(){
+  metros.length = 0;
+  (G.metroPaths || []).forEach((path, pi) => {
+    const n = path.pts.length - 1;
+    if(n < 1) return;
+    const count = clamp(Math.round(n / 1.6), 2, 6);
+    for(let i = 0; i < count; i++)
+      metros.push({pts: path.pts, pi, li: path.li, t: (i + 0.4) / count * n,
+                   dir: i % 2 ? -1 : 1, wait: 0, atStop: -1, load: 0, wx: path.pts[0].x, wz: path.pts[0].z});
+  });
+}
+/* Same integration as the trams, without a body to draw. */
+function updateMetros(dt){
+  const rate = Math.max(state.speed, 0);
+  for(const tr of metros){
+    const pts = tr.pts, segCount = pts.length - 1;
+    if(!pts || segCount < 1) continue;
+    if(tr.wait > 0){ tr.wait -= dt * Math.max(rate, 0.001); }
+    else {
+      tr.atStop = -1;
+      const sIdx = clamp(Math.floor(tr.t), 0, segCount - 1);
+      const a0 = pts[sIdx], b0 = pts[sIdx + 1];
+      const segLen = Math.hypot(b0.x - a0.x, b0.z - a0.z) || 1;
+      const oldT = tr.t;
+      tr.t += tr.dir * (RIDE_SPEED.subway * rate * dt) / segLen;
+      if(tr.dir > 0){
+        for(let k = Math.ceil(oldT + 1e-4); k <= Math.min(segCount, Math.floor(tr.t + 1e-9)); k++)
+          if(pts[k]){ tr.t = k; tr.wait = TRAM_DWELL + Math.random() * 4; tr.atStop = k; break; }
+      } else {
+        for(let k = Math.floor(oldT - 1e-4); k >= Math.max(0, Math.ceil(tr.t - 1e-9)); k--)
+          if(pts[k]){ tr.t = k; tr.wait = TRAM_DWELL + Math.random() * 4; tr.atStop = k; break; }
+      }
+      if(tr.t >= segCount){ tr.t = segCount; tr.dir = -1; tr.wait = TRAM_DWELL * 1.6; tr.atStop = segCount; }
+      if(tr.t <= 0){ tr.t = 0; tr.dir = 1; tr.wait = TRAM_DWELL * 1.6; tr.atStop = 0; }
+    }
+    const seg = clamp(Math.floor(tr.t), 0, segCount - 1);
+    const f = clamp(tr.t - seg, 0, 1);
+    const a0 = pts[seg], b0 = pts[seg + 1];
+    tr.wx = lerp(a0.x, b0.x, f); tr.wz = lerp(a0.z, b0.z, f);
+    tr.wang = Math.atan2(b0.x - a0.x, b0.z - a0.z) + (tr.dir < 0 ? Math.PI : 0);
+  }
+  updateVehicleDots();
+}
+function metroToBoard(pi, fromI, toI){
+  for(const tr of metros){
+    if(tr.pi !== pi) continue;
+    const win = state.speed > 100 ? 0.9 : state.speed > 20 ? 0.45 : 0.15;
+    if(!(tr.atStop === fromI || Math.abs(tr.t - fromI) < win)) continue;
+    if((tr.load || 0) >= TRAM_SEATS * 3) continue;
+    if(toI > fromI ? tr.dir > 0 : tr.dir < 0) return tr;
+  }
+  return null;
+}
+function findMetroLeg(ax, az, bx, bz){
+  let best = null;
+  (G.metroPaths || []).forEach((path, pi) => {
+    const near = (x, z) => {
+      let bi = -1, bd = Infinity;
+      path.pts.forEach((w, i) => { const d = (w.x - x) ** 2 + (w.z - z) ** 2;
+        if(d < bd){ bd = d; bi = i; } });
+      return {i: bi, d: Math.sqrt(bd), w: path.pts[bi]};
+    };
+    const A = near(ax, az), B = near(bx, bz);
+    if(A.i < 0 || B.i < 0 || A.i === B.i) return;
+    const score = A.d + B.d;
+    if(A.d > 90 || B.d > 90) return;
+    if(!best || score < best.score)
+      best = {pi, score, from:{i:A.i, uid:A.w.uid}, to:{i:B.i, uid:B.w.uid}};
+  });
+  return best;
+}
 
 function buildTramVehicles(){
   trams.length = 0;
@@ -5099,7 +5629,9 @@ function buildTramVehicles(){
       trams.push({pts, pi, li: path.li, t: (i + 0.4) / count * (pts.length - 1), dir: i % 2 ? -1 : 1,
                   ox:0, oz:0, wait:0, atStop:-1, load:0});
   });
-  if(trams.length){ makeTramMesh(); return; }
+  buildMetroVehicles();
+  if(trams.length){ makeTramMesh(); buildVehicleDots(); return; }
+  // ...otherwise fall through and improvise a service from whatever track exists
   const corridors = [];
   const seen = new Set();
   for(let a = 0; a < NN; a++){
@@ -5151,6 +5683,7 @@ function buildTramVehicles(){
     if(trams.length > 40) break;
   }
   makeTramMesh();
+  buildVehicleDots();
 }
 function makeTramMesh(){
   for(const m of [tramMesh, tramLampMesh, tramBeamMesh]) if(m){ scene.remove(m); m.dispose(); }
@@ -5169,9 +5702,13 @@ function makeTramMesh(){
 }
 function updateTrams(dt, boost){
   if(!tramMesh) return;
-  /* Trams run at the same time compression as everyone else. Holding them back
-     used to look calmer, but now that people wait for them it just meant the
-     service fell behind the passengers and the platforms never cleared. */
+  /* Trams keep true simulated time rather than the crowd's `sqrt(speed)`
+     compression. The crowd is compressed so that nobody teleports at 600x, but
+     a *service* has to run to a timetable: compressed, a tram covers less
+     simulated ground the faster the clock runs, so headways stretch out and a
+     passenger who was quoted a two-minute wait stands on the platform for
+     three-quarters of an hour. */
+  const rate = Math.max(state.speed, 0);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1,1,1);
   const up = new THREE.Vector3(0,1,0);
   for(let i = 0; i < trams.length; i++){
@@ -5180,29 +5717,29 @@ function updateTrams(dt, boost){
     if(!pts || pts.length < 2) continue;
     const segCount = pts.length - 1;
     if(tr.wait > 0){
-      tr.wait -= dt * Math.max(boost, 0.001);
+      tr.wait -= dt * Math.max(rate, 0.001);
     } else {
       tr.atStop = -1;
       const sIdx = clamp(Math.floor(tr.t), 0, segCount - 1);
       const a0 = pts[sIdx], b0 = pts[sIdx + 1];
       const segLen = Math.hypot(b0.x - a0.x, b0.z - a0.z) || 1;
       const oldT = tr.t;
-      tr.t += tr.dir * (11.5 * boost * dt) / segLen;   // ~41 km/h at real time
+      tr.t += tr.dir * (TRAM_MS * rate * dt) / segLen;   // ~41 km/h in simulated time
       // Check every waypoint crossed this frame, not just the first: at 600x a
       // tram covers several at once and would sail straight past its stops.
       if(tr.dir > 0){
         for(let k = Math.ceil(oldT + 1e-4); k <= Math.min(segCount, Math.floor(tr.t + 1e-9)); k++){
           if(pts[k] && pts[k].stop){
-            tr.t = k; tr.wait = 2.4 + Math.random() * 1.6; tr.atStop = k; break; }
+            tr.t = k; tr.wait = TRAM_DWELL + Math.random() * 4; tr.atStop = k; break; }
         }
       } else {
         for(let k = Math.floor(oldT - 1e-4); k >= Math.max(0, Math.ceil(tr.t - 1e-9)); k--){
           if(pts[k] && pts[k].stop){
-            tr.t = k; tr.wait = 2.4 + Math.random() * 1.6; tr.atStop = k; break; }
+            tr.t = k; tr.wait = TRAM_DWELL + Math.random() * 4; tr.atStop = k; break; }
         }
       }
-      if(tr.t >= segCount){ tr.t = segCount; tr.dir = -1; tr.wait = 3.2 + Math.random() * 1.8; tr.atStop = segCount; }
-      if(tr.t <= 0){ tr.t = 0; tr.dir = 1; tr.wait = 3.2 + Math.random() * 1.8; tr.atStop = 0; }
+      if(tr.t >= segCount){ tr.t = segCount; tr.dir = -1; tr.wait = TRAM_DWELL * 1.6 + Math.random() * 6; tr.atStop = segCount; }
+      if(tr.t <= 0){ tr.t = 0; tr.dir = 1; tr.wait = TRAM_DWELL * 1.6 + Math.random() * 6; tr.atStop = 0; }
     }
     const seg = clamp(Math.floor(tr.t), 0, segCount - 1);
     const f = clamp(tr.t - seg, 0, 1);
@@ -5510,6 +6047,12 @@ addEventListener('pointerup', e => {
   const still = downPos && Math.abs(e.clientX - downPos.x) < 4 && Math.abs(e.clientY - downPos.y) < 4;
   // In view mode a click on somebody rides along with them; a click on a
   // building picks it out and makes it the thing the camera orbits about.
+  // the journey planner takes the click before anything else does
+  if(action === 'orbit' && still && trip.on && !trip.rider && e.button === 0){
+    tripClick(pickObject(e));
+    action = null; downPos = null;
+    return;
+  }
   if(action === 'orbit' && still && state.mode === 'view' && cine.mode === 'off' && e.button === 0){
     const r = pickRider(e);
     if(r){ startFollow(r.subject, r.kind, r.label); action = null; downPos = null; return; }
@@ -5555,7 +6098,10 @@ canvas.addEventListener('wheel', e => {
   e.preventDefault();
   if(cine.mode === 'follow'){                     // between first person and a chase view
     const mx = cine.maxBack || 16;
-    cine.back = clamp(cine.back + clamp(e.deltaY, -120, 120) * mx * 0.0009, 0, mx);
+    // proportional: a notch moves you a fixed *fraction* of the way out, so
+    // crossing five hundred metres takes the same few flicks as crossing sixteen
+    const step = clamp(e.deltaY, -120, 120) * 0.0016;
+    cine.back = clamp(cine.back + step * Math.max(6, cine.back) * 2.2 + step * 6, 0, mx);
     return;
   }
   if(cine.mode !== 'off') return;
@@ -5654,7 +6200,10 @@ addEventListener('keydown', e => {
   if((k === 'enter' || k === 'escape') && drawLine >= 0){ finishLine(); if(k === 'enter') return; }
   if(k === 'v' && !e.ctrlKey && !e.metaKey){ cine.mode === 'fly' ? stopCinema() : startFlyby(); return; }
   if(k === 'n' && cine.mode === 'fly'){ nextShot(); return; }
+  if(k === 'j' && !e.ctrlKey && !e.metaKey){ trip.on ? tripStop() : tripStart(); return; }
   if(k === 'escape'){
+    if(trip.rider){ tripEndRide(); tripRender(); return; }
+    if(trip.on && cine.mode === 'off'){ tripStop(); return; }
     if(cine.mode !== 'off'){ stopCinema(); return; }
     if(state.focus){ clearFocus(); return; }
     setTool(null); state.selected = -1; updateSelectionBox(); buildInspector(true); ghost.visible = false;
@@ -5918,6 +6467,19 @@ function subjectPose(){
       cine.idx = agents.indexOf(s);
       if(cine.idx < 0) return null;
     }
+    /* Aboard a tram, follow the tram. A rider is carried inside a solid body,
+       so the agent is hidden — and a hidden subject reads as "gone inside", which
+       leaves the camera standing at the stop they boarded at, announcing that
+       they have gone indoors, and giving up on them ten seconds later. Ride in
+       the cab the way the tram camera does. */
+    if(s.state === 'ride' && s.tram && s.tram.wx !== undefined){
+      const t = s.tram;
+      const thx = Math.sin(t.wang || 0), thz = Math.cos(t.wang || 0);
+      const nose = s.metro ? 0 : TRAM_NOSE;
+      return {x: t.wx + thx * nose, y: 0, z: t.wz + thz * nose,
+              hx: thx, hz: thz, eye: s.metro ? 4.2 : 2.9, rigid: true, rise: 0.22,
+              aboard: s.metro ? 'subway' : 'tram'};
+    }
     return {x: s.x, y: (s.hidden || s.state === 'in') ? null : (s.y || 0), z: s.z,
             hx: s.hx, hz: s.hz, eye: (s.cyclist ? 1.66 : EYE) * clamp(state.pplSize, 0.5, 1.6)};
   }
@@ -5933,9 +6495,11 @@ function updateFollow(dt){
   if(!p){ toast('Lost them — back to the free camera'); stopCinema(); return; }
   const indoors = p.y === null;
   cine.hiddenT = indoors ? (cine.hiddenT || 0) + dt : 0;
-  $('cineWhat').textContent = indoors
-    ? cine.label + ' — gone inside' + (cine.hiddenT > 4 ? ' (waiting…)' : '')
-    : cine.label;
+  const doing = trip.rider && cine.subject === trip.rider && trip.steps && trip.steps[trip.step]
+              ? ' — ' + trip.steps[trip.step].label.toLowerCase() : '';
+  $('cineWhat').textContent = p.aboard ? cine.label + (p.aboard === 'subway' ? ' — on the subway' : ' — on the tram')
+    : indoors ? cine.label + ' — gone inside' + (cine.hiddenT > 4 ? ' (waiting…)' : '')
+    : cine.label + doing;
   if(cine.hiddenT > 11){          // they have settled in for a while; don't stare at a wall
     toast('They have gone in for a while — click someone else');
     stopCinema();
@@ -5945,16 +6509,24 @@ function updateFollow(dt){
     const head = Math.atan2(p.hx, p.hz);
     const yaw = head + cine.yaw;
     const back = cine.back;
-    _ct.set(p.x - Math.sin(yaw) * back, p.y + p.eye + back * (p.rise || 0.28), p.z - Math.cos(yaw) * back);
+    /* Rise faster than you pull back once you are well out, so the far end of
+       the scroll looks down on the city rather than across it from a mile away. */
+    const lift = back * (p.rise || 0.28) + Math.max(0, back - 40) * 0.55;
+    _ct.set(p.x - Math.sin(yaw) * back, p.y + p.eye + lift, p.z - Math.cos(yaw) * back);
     // A tram is a rigid body on rails and its own motion is already smoothed, so
     // bolt the camera to the cab. Smoothing here would just let it lag back down
     // the carriage at speed. People need the damping — they bob and turn sharply.
     if(p.rigid && !back) cine.pos.copy(_ct);
     else cine.pos.lerp(_ct, 1 - Math.pow(p.rigid ? 1e-9 : 0.0009, dt));
+    /* Look at the person, not off into the middle distance: pulled back, the
+       subject is what the shot is about. */
     const cp = Math.cos(cine.pitch);
-    cine.look.set(cine.pos.x + Math.sin(yaw) * 40 * cp,
-                  cine.pos.y + Math.sin(cine.pitch) * 40,
-                  cine.pos.z + Math.cos(yaw) * 40 * cp);
+    const far = 40 + back;
+    const aim = clamp((back - 30) / 90, 0, 1);
+    const fx = cine.pos.x + Math.sin(yaw) * far * cp;
+    const fy = cine.pos.y + Math.sin(cine.pitch) * far;
+    const fz = cine.pos.z + Math.cos(yaw) * far * cp;
+    cine.look.set(lerp(fx, p.x, aim), lerp(fy, p.y + p.eye, aim), lerp(fz, p.z, aim));
   }
   camera.position.copy(cine.pos);
   camera.lookAt(cine.look);
@@ -5973,6 +6545,824 @@ function syncOrbitFromCamera(){
   camGoal.az = cam.az = az; camGoal.el = cam.el = el;
   applyCamera();
 }
+/* ============================================================================
+   13c. THE JOURNEY PLANNER
+   Pick two places and ask the city how long it takes to get between them on
+   foot, by bike, by tram and by underground — then send somebody, and watch.
+
+   The times are computed from the simulation's *own* speeds rather than from
+   real-world figures, because the whole point is that you can then take the
+   journey and watch it happen. An estimate the traveller disagrees with is
+   worse than no estimate.
+   ========================================================================== */
+const TRIP_MODES = [
+  {k:'walk',   n:'On foot',   col:[1.00, 0.86, 0.55], sw:'#ffd98c'},
+  {k:'bike',   n:'By bike',   col:[0.28, 1.00, 0.82], sw:'#48ffd1'},
+  {k:'tram',   n:'By tram',   col:[1.00, 0.46, 0.30], sw:'#ff764d'},
+  {k:'subway', n:'By subway', col:[0.55, 0.60, 1.00], sw:'#8c99ff'},
+];
+/* The weighting a traveller is sent off with when they take each of them. */
+const TRIP_RUN = {walk:'walk', bike:'bikeonly', tram:'tramride', subway:'metroride'};
+/* Whether the traveller is actually aboard something. Gate this on the mode,
+   never on the edge: someone walking down an arterial is on a `trunk` edge, and
+   without the check they board it and cover the whole walk at tram speed. */
+const RAIL_PROFILE = {tramride:1, metroride:1};
+/* Metres per second, matching what the figures actually do on screen. */
+const RIDE_SPEED = {
+  walk: AGENT_BASE, park: AGENT_BASE, path: AGENT_BASE,
+  bike: AGENT_BASE * 3.5,
+  tram: 11.5, trunk: 11.5,                       // the tram vehicle's own pace
+  subway: AGENT_BASE * SEG_VIS_SPEED.subway,
+};
+/* Seconds spent waiting for a service to turn up. Only trams have it: a
+   passenger waiting for a tram is modelled — they stand on the platform until a
+   vehicle actually arrives — whereas a subway rider simply walks the tunnel
+   edges. Charging a wait the simulation does not impose would leave the quote
+   permanently two or three minutes above the journey you then watch. */
+/* How long you actually stand there. Guessing a flat two and a half minutes is
+   silly when you can count the vehicles: a line's headway is its round trip
+   divided by how many trams are running it, and the average wait is half a
+   headway. On a short line with several trams that is well under a minute,
+   which is what it looks like from the pavement. */
+const BOARD_WAIT = 150;                     // fallback when there is no service to count
+function lineHeadway(li, metro){
+  const paths = metro ? (G.metroPaths || []) : (G.tramPaths || []);
+  const fleet = metro ? metros : trams;
+  const path = paths.find(p => p.li === li);
+  if(!path || !path.pts || path.pts.length < 2) return BOARD_WAIT * 2;
+  let len = 0;
+  for(let i = 1; i < path.pts.length; i++)
+    len += Math.hypot(path.pts[i].x - path.pts[i-1].x, path.pts[i].z - path.pts[i-1].z);
+  const cars = Math.max(1, fleet.filter(t => t.li === li).length);
+  const stops = path.pts.filter(p => p.stop).length;
+  const speed = metro ? RIDE_SPEED.subway : TRAM_MS;
+  const round = (2 * len) / speed + stops * 2 * (TRAM_DWELL + 2);   // there and back, plus dwell
+  return round / cars;
+}
+function waitOn(line){
+  if(!line) return BOARD_WAIT;
+  const li = state.lines.indexOf(line);
+  if(li < 0) return BOARD_WAIT;
+  return clamp(lineHeadway(li, modeOf(line) === 'subway') / 2, 12, 600);   // half a headway
+}
+
+const trip = {on:false, a:null, b:null, routes:null, pick:'walk', rider:null, mesh:null, t0:0};
+
+const TRIP_ACCESS = 900;     // metres you will walk to reach a stop or a bike path
+const INTERCHANGE = 260;     // metres between stops that counts as one interchange
+
+/* Walking is unrestricted — every street in a car-free city is a footway. The
+   other three are not: a bike route has to be ridden on bike paths, and a
+   transit route has to be *boarded* somewhere and *alighted* somewhere. Route
+   them on their own network and they answer honestly, including "you can't get
+   there from here", instead of quietly falling back on the street lattice and
+   handing back the same straight line four times over. */
+function walkPath(from, to){
+  /* Nought metres is a perfectly good walk. When a building and a stop share a
+     lattice node — which is exactly what happens when the stop is right outside
+     the door — the router has nothing to return, and treating that as "no path"
+     drops the nearest stop from the candidates entirely. The planner is then
+     forced to board somewhere else, and produces the famously silly route of
+     walking right across the city to the far station and riding back to the one
+     outside the building you started in. */
+  if(from === to && from >= 0)
+    return {nodes:[from], dist:0, secs:0, pts:[[G.x[from], G.z[from]]]};
+  const nodes = routeNodes('walk', from, to);
+  if(!nodes || nodes.length < 2) return null;
+  let d = 0;
+  for(let i = 1; i < nodes.length; i++)
+    d += Math.hypot(G.x[nodes[i]] - G.x[nodes[i-1]], G.z[nodes[i]] - G.z[nodes[i-1]]);
+  return {nodes, dist: d, secs: d / AGENT_BASE, pts: nodes.map(n => [G.x[n], G.z[n]])};
+}
+function ptsOf(nodes){ return nodes.map(n => [G.x[n], G.z[n]]); }
+const nameOf = o => o ? (PLURALS[o.type] ? PLURALS[o.type][0] : TYPES[o.type].label) : 'the destination';
+
+/* ---- on foot -------------------------------------------------------------- */
+function planWalk(A, B){
+  const w = walkPath(A._node, B._node);
+  if(!w) return null;
+  return {total: w.secs, onFoot: w.secs, riding: 0, waiting: 0, boards: 0, dist: w.dist,
+          pts: w.pts, pk: w.pts.slice(1).map(() => 'walk'),
+          steps: [{k:'walk', kind:'foot', len:w.dist, secs:w.secs,
+                   label:'Walk to ' + nameOf(B)}]};
+}
+
+/* ---- by bike --------------------------------------------------------------
+   Ridden on bike paths and arterial cycle lanes, and on nothing else. You may
+   wheel the bike a couple of hundred metres at each end to reach the network
+   and to leave it, but not in the middle: a route that hops on and off wherever
+   the network happens to cross is not a bike route, it is a walk with
+   decoration. If no path joins the two, there is no bike route — and saying so
+   is the answer. */
+const BIKE_ACCESS = 300;     // metres you will wheel a bike to reach a path
+function bikeNodes(){
+  const out = new Set();
+  for(let n = 0; n < G.adj.length; n++){
+    if(!G.adj[n]) continue;
+    for(const e of G.adj[n]) if(e.kind === 'bike' || e.kind === 'trunk'){ out.add(n); out.add(e.to); }
+  }
+  return out;
+}
+function planBike(A, B){
+  const net = bikeNodes();
+  if(!net.size) return null;
+  const nearNet = (o) => {
+    const out = [];
+    for(const n of net){
+      const d = Math.hypot(G.x[n] - o._cx, G.z[n] - o._cz);
+      if(d < BIKE_ACCESS) out.push([n, d]);
+    }
+    return out.sort((a, b) => a[1] - b[1]).slice(0, 8);
+  };
+  const ins = nearNet(A), outs = nearNet(B);
+  if(!ins.length || !outs.length) return null;
+  const access = new Map(), egress = new Map();
+  for(const [n] of ins){ const w = walkPath(A._node, n); if(w && w.dist <= BIKE_ACCESS * 1.5) access.set(n, w); }
+  for(const [n] of outs){ const w = walkPath(n, B._node); if(w && w.dist <= BIKE_ACCESS * 1.5) egress.set(n, w); }
+  if(!access.size || !egress.size) return null;
+  // Dijkstra over bike edges only, from every node worth wheeling the bike to
+  const cost = new Map(), from = new Map(), q = [];
+  for(const [n, w] of access){ cost.set(n, w.secs); q.push(n); }
+  while(q.length){
+    q.sort((a, b) => cost.get(a) - cost.get(b));
+    const u = q.shift();
+    for(const e of (G.adj[u] || [])){
+      if(e.kind !== 'bike' && e.kind !== 'trunk') continue;
+      const c = cost.get(u) + e.len / RIDE_SPEED.bike;
+      if(c < (cost.get(e.to) ?? Infinity)){ cost.set(e.to, c); from.set(e.to, u); q.push(e.to); }
+    }
+  }
+  let end = -1, bestT = Infinity;
+  for(const [n, w] of egress){
+    const c = cost.get(n);
+    if(c === undefined) continue;
+    if(c + w.secs < bestT){ bestT = c + w.secs; end = n; }
+  }
+  if(end < 0) return null;
+  const chain = [end];
+  while(from.has(chain[0])) chain.unshift(from.get(chain[0]));
+  const inW = access.get(chain[0]), outW = egress.get(end);
+  if(!inW || !outW) return null;
+  let ride = 0;
+  for(let i = 1; i < chain.length; i++)
+    ride += Math.hypot(G.x[chain[i]] - G.x[chain[i-1]], G.z[chain[i]] - G.z[chain[i-1]]);
+  if(ride < 1) return null;                        // never actually got on a path
+  const rideSecs = ride / RIDE_SPEED.bike;
+  const onFoot = inW.secs + outW.secs;
+  const pts = inW.pts.concat(ptsOf(chain), outW.pts);
+  const pk = inW.pts.slice(1).map(() => 'walk')
+    .concat(['walk'], chain.slice(1).map(() => 'bike'), ['walk'],
+            outW.pts.slice(1).map(() => 'walk'));
+  const steps = [];
+  if(inW.dist > 5) steps.push({k:'walk', kind:'push', len:inW.dist, secs:inW.secs,
+                               label:'Wheel the bike to the bike path'});
+  steps.push({k:'ride', kind:'bike', len:ride, secs:rideSecs, label:'Ride the bike path'});
+  if(outW.dist > 5) steps.push({k:'walk', kind:'push', len:outW.dist, secs:outW.secs,
+                                label:'Wheel the bike to ' + nameOf(B)});
+  else steps[steps.length - 1].label = 'Ride to ' + nameOf(B);
+  return {total: onFoot + rideSecs, onFoot, riding: rideSecs, waiting: 0, boards: 0,
+          dist: inW.dist + ride + outW.dist, pts, pk, steps};
+}
+
+/* ---- by tram, by subway ---------------------------------------------------
+   A network of services, not a set of edges that happen to lie on your way:
+   walk to a stop, board, ride the line, change if you have to, get off, walk
+   the rest. Routed on a graph whose nodes are the stops themselves. */
+/* The waypoints a vehicle actually covers between two stops. A tram follows the
+   streets, so drawing its leg of a journey as a straight line from platform to
+   platform runs the route through the middle of blocks it never goes near — and
+   the bead, which does follow the track, visibly leaves the line it is supposed
+   to be running on. A subway is a tunnel; there a straight line is the truth. */
+function ridePoints(want, line, fromStop, toStop){
+  if(want === 'subway' || !line || !fromStop || !toStop) return [];
+  const li = state.lines.indexOf(line);
+  const path = (G.tramPaths || []).find(p => p.li === li);
+  if(!path) return [];
+  const at = uid => path.pts.findIndex(w => w.uid === uid);
+  const a = at(fromStop.uid), b = at(toStop.uid);
+  if(a < 0 || b < 0) return [];
+  const step = a < b ? 1 : -1;
+  const out = [];
+  for(let i = a + step; i !== b; i += step){
+    const w = path.pts[i];
+    if(w) out.push([w.x, w.z]);
+  }
+  return out;
+}
+function stopGraph(want){
+  const stops = [], byUid = new Map();
+  for(const o of state.objects){
+    if(!isStop(o)) continue;
+    if(want === 'subway' ? o.type !== 'subway' : o.type !== 'tramstop') continue;
+    byUid.set(o.uid, stops.length);
+    stops.push({o, x: o._cx, z: o._cz, adj: []});
+  }
+  for(const L of state.lines){
+    if(modeOf(L) !== want) continue;
+    for(let i = 1; i < L.stops.length; i++){
+      const a = byUid.get(L.stops[i-1]), b = byUid.get(L.stops[i]);
+      if(a === undefined || b === undefined || a === b) continue;
+      const d = Math.hypot(stops[a].x - stops[b].x, stops[a].z - stops[b].z);
+      // a tram stops at the far end of every hop; five stops en route is a minute
+      const secs = d / (want === 'subway' ? RIDE_SPEED.subway : RIDE_SPEED.tram) + TRAM_DWELL + 2;
+      stops[a].adj.push({to:b, secs, dist:d, line:L, ride:1, from:stops[a].o, at:stops[b].o});
+      stops[b].adj.push({to:a, secs, dist:d, line:L, ride:1, from:stops[b].o, at:stops[a].o});
+    }
+  }
+  // walking between stops that are close enough to count as one interchange
+  for(let i = 0; i < stops.length; i++) for(let j = i + 1; j < stops.length; j++){
+    const d = Math.hypot(stops[i].x - stops[j].x, stops[i].z - stops[j].z);
+    if(d < 1 || d > INTERCHANGE) continue;
+    stops[i].adj.push({to:j, secs: d / AGENT_BASE, dist:d, ride:0});
+    stops[j].adj.push({to:i, secs: d / AGENT_BASE, dist:d, ride:0});
+  }
+  return stops;
+}
+function planByService(A, B, want){
+  const stops = stopGraph(want);
+  if(!stops.length) return 'none';
+  const near = (o) => stops
+    .map((s, i) => [i, Math.hypot(s.x - o._cx, s.z - o._cz)])
+    .filter(([, d]) => d < TRIP_ACCESS)
+    .sort((a, b) => a[1] - b[1]).slice(0, 6);
+  const ins = near(A), outs = near(B);
+  if(!ins.length || !outs.length) return 'none';
+  const outAt = new Map(outs);
+  // Dijkstra from every stop worth walking to, carrying which line we are on so
+  // that changing counts as a change
+  /* Carry the stop we boarded at through the search. Without it, a journey
+     whose two ends are served by the *same* station has only one way to satisfy
+     "you must board something": ride out to the next station and straight back
+     again, which is not a subway journey, it is a joyride. Knowing where we got
+     on lets the search refuse to get off there. */
+  const best = new Map(), prev = new Map();
+  const key = (i, line, org) => i + '|' + (line === undefined ? '-' : line) + '|' + org;
+  const q = [];
+  const firstWait = Math.min(...state.lines.filter(L => modeOf(L) === want).map(L => waitOn(L)), BOARD_WAIT);
+  for(const [i, d] of ins){
+    const w = walkPath(A._node, nearestNode(stops[i].x, stops[i].z));
+    if(!w || w.dist > TRIP_ACCESS * 1.4) continue;
+    const k = key(i, undefined, i);
+    const cost = w.secs + firstWait;
+    if(!(best.get(k) <= cost)){ best.set(k, cost); prev.set(k, {access: w, stop: i}); q.push({k, i, line: undefined, org: i, cost}); }
+  }
+  if(!q.length) return 'none';
+  let done = null;
+  while(q.length){
+    q.sort((a, b) => a.cost - b.cost);
+    const cur = q.shift();
+    if(cur.cost > (best.get(cur.k) ?? Infinity)) continue;
+    /* Only count as arrived if something was actually boarded. `line ===
+       undefined` means "still on the platform, never got on" — and when both
+       ends of a short journey are near the *same* stop, that state is itself a
+       terminus, so the search happily returns a route that walks to the station
+       and then walks away from it again, charges a boarding wait for the
+       privilege, and reports it as a subway journey. Which is precisely what it
+       looks like: a person strolling straight past the station. */
+    /* You must have boarded, you may not get off where you got on, and the
+       ride has to have taken you *nearer*. Without that last test the search
+       will happily walk you across the city to the far station and ride you
+       back to the one outside your own front door — every step of it locally
+       cheapest, the whole of it absurd. */
+    const closer = cur.line !== undefined &&
+      Math.hypot(stops[cur.i].x - B._cx, stops[cur.i].z - B._cz) <
+      Math.hypot(stops[cur.org].x - B._cx, stops[cur.org].z - B._cz) - 30;
+    if(closer && cur.i !== cur.org && outAt.has(cur.i)){
+      const w = walkPath(nearestNode(stops[cur.i].x, stops[cur.i].z), B._node);
+      if(w && w.dist <= TRIP_ACCESS * 1.4){
+        const tot = cur.cost + w.secs;
+        if(!done || tot < done.cost) done = {cost: tot, k: cur.k, egress: w};
+      }
+    }
+    for(const e of stops[cur.i].adj){
+      const line = e.ride ? state.lines.indexOf(e.line) : cur.line;
+      const change = e.ride && cur.line !== undefined && line !== cur.line;
+      const cost = cur.cost + e.secs + (change ? (e.ride ? waitOn(e.line) : BOARD_WAIT) : 0);
+      const k = key(e.to, line, cur.org);
+      if(cost < (best.get(k) ?? Infinity)){
+        best.set(k, cost); prev.set(k, {from: cur.k, e, stop: e.to});
+        q.push({k, i: e.to, line, org: cur.org, cost});
+      }
+    }
+    if(done && q.length && q[0] && q[0].cost > done.cost) break;
+  }
+  if(!done) return 'none';
+  // unwind
+  const chain = [];
+  let k = done.k;
+  while(k !== undefined && prev.has(k)){
+    const p = prev.get(k);
+    chain.unshift(p);
+    k = p.from;
+  }
+  const access = chain[0] && chain[0].access;
+  if(!access) return 'none';
+  let onFoot = access.secs + done.egress.secs, riding = 0, boards = 1;
+  let waiting = firstWait;
+  let dist = access.dist + done.egress.dist;
+  const pts = access.pts.slice();
+  const pk = access.pts.slice(1).map(() => 'walk');
+  /* The access walk ends at the lattice node nearest the stop, not at the stop
+     itself. Step onto the platform explicitly: without it the first ride edge
+     runs from that node to the platform and gets labelled as a ride, so the
+     leg-splitter looks for a service between the wrong two points, finds
+     nothing, and hands back one long walk — a person strolling straight past
+     the station and on down the line. */
+  const boardAt = chain[0] && stops[chain[0].stop];
+  if(boardAt){ pts.push([boardAt.x, boardAt.z]); pk.push('walk'); }
+  /* Record each ride as a pair of indices into `pts` plus the two stop objects.
+     Recovering them afterwards by looking for the nearest station to the ends
+     of a run of `subway` labels does not work: a run can start or end on a
+     lattice node rather than on the platform, the nearest-station test misses,
+     and the leg is silently dropped — leaving the traveller to walk the tunnel. */
+  const rides = [];
+  const steps = [{k:'walk', kind:'foot', len:access.dist, secs:access.secs,
+                  label:'Walk to the ' + (want === 'subway' ? 'subway station' : 'tram stop')}];
+  /* Walk the chain once, turning it into points, leg kinds, a ride record and
+     the passenger's itinerary together. The ride record is what the leg
+     splitter uses later, so it has to be written *here*, where the boarding and
+     alighting stops are known exactly. */
+  let ride = null, ridden = false;
+  for(const p of chain){
+    if(!p.e) continue;
+    const boardIdx = pts.length - 1;
+    // follow the track between the platforms rather than the crow's line
+    if(p.e.ride) for(const w of ridePoints(want, p.e.line, p.e.from, p.e.at)){
+      pts.push(w); pk.push(want);
+    }
+    pts.push([stops[p.stop].x, stops[p.stop].z]);
+    pk.push(p.e.ride ? want : 'walk');
+    dist += p.e.dist;
+    if(p.e.ride){
+      riding += p.e.secs;
+      if(!ride){
+        if(ridden){ const w2 = waitOn(p.e.line); waiting += w2; boards++; }
+        steps.push({k:'wait', kind:want, len:0, secs: waitOn(p.e.line),
+                    label: want === 'subway' ? 'Wait on the platform' : 'Wait at the tram stop'});
+        ride = {k:'ride', kind:want, len:0, secs:0, line:p.e.line,
+                label: want === 'subway' ? 'Ride the subway' : 'Ride the tram'};
+        steps.push(ride);
+        rides.push({from: boardIdx, to: pts.length - 1, board: p.e.from, off: p.e.at, want});
+        ridden = true;
+      } else {
+        ride.off = p.e.at;
+        const last = rides[rides.length - 1];
+        last.to = pts.length - 1; last.off = p.e.at;
+      }
+      ride.len += p.e.dist; ride.secs += p.e.secs;
+    } else {
+      onFoot += p.e.secs;
+      ride = null;
+      // before you have boarded anything, a hop between stops is just more walking
+      steps.push({k:'walk', kind:'foot', len:p.e.dist, secs:p.e.secs,
+                  label: ridden ? 'Change stops'
+                       : 'Walk to the ' + (want === 'subway' ? 'subway station' : 'tram stop')});
+    }
+  }
+  for(const p of done.egress.pts){ pts.push(p); pk.push('walk'); }
+  steps.push({k:'walk', kind:'foot', len:done.egress.dist, secs:done.egress.secs,
+              label:'Walk to ' + nameOf(B)});
+  // drop any ride step that never got used
+  const out = steps.filter(st => st.k !== 'ride' || st.len > 0);
+  return {total: onFoot + riding + waiting, onFoot, riding, waiting, boards, dist, pts, pk,
+          rides: rides.filter(x => x.board && x.off && x.to > x.from), steps: out};
+}
+function tripPlan(){
+  if(!trip.a || !trip.b) return null;
+  if(trip.a._node < 0 || trip.b._node < 0) return null;
+  const w = planWalk(trip.a, trip.b);
+  const out = {walk: w, bike: planBike(trip.a, trip.b), why: {}};
+  for(const want of ['tram', 'subway']){
+    const r = planByService(trip.a, trip.b, want);
+    if(typeof r === 'string'){ out[want] = null; out.why[want] = r; }
+    else out[want] = r;
+  }
+  return out;
+}
+const hhmm = s => {
+  const m = Math.round(s / 60);
+  return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
+};
+
+/* --- drawing the routes --------------------------------------------------- */
+let tripMesh = null;
+function clearTripMesh(){
+  if(!tripMesh) return;
+  scene.remove(tripMesh);
+  tripMesh.geometry.dispose();
+  tripMesh = null;
+}
+function buildTripMesh(){
+  clearTripMesh();
+  if(!trip.routes) return;
+  /* Two quite different jobs. While you are choosing, the four answers are laid
+     over the city so they can be compared at a glance — raised, and drawn
+     through buildings so a route is never hidden behind a tower. Once you are
+     travelling there is nothing left to compare: one route, painted on the road
+     at the traveller's feet, with the city occluding it normally. Drawn over
+     everything at head height it sits between you and the person you are
+     following, which is neither useful nor nice to look at. */
+  const riding = !!(trip.rider || trip.done);
+  const parts = [];
+  TRIP_MODES.forEach((m, mi) => {
+    if(riding && m.k !== trip.pick) return;
+    const r = trip.routes[m.k];
+    if(!r || !r.pts || r.pts.length < 2) return;
+    const on = m.k === trip.pick;
+    const w = riding ? 2.6 : on ? 3.4 : 1.5;
+    const y = riding ? 0.22 : 1.4 + mi * 0.35;      // on the road, or stacked above it
+    const lat = riding ? 0 : (mi - 1.5) * (on ? 0 : 2.2);
+    const col = on ? m.col : m.col.map(v => v * 0.42);
+    for(let i = 1; i < r.pts.length; i++){
+      const x0 = r.pts[i - 1][0], z0 = r.pts[i - 1][1];
+      const x1 = r.pts[i][0], z1 = r.pts[i][1];
+      const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz);
+      if(L < 0.01) continue;
+      const nx = -dz / L * lat, nz = dx / L * lat;
+      const g = new THREE.PlaneGeometry(L, w).rotateX(-Math.PI / 2)
+        .rotateY(-Math.atan2(dz, dx))
+        .translate((x0 + x1) / 2 + nx, y, (z0 + z1) / 2 + nz);
+      const cc = new Float32Array(g.attributes.position.count * 3);
+      for(let k = 0; k < g.attributes.position.count; k++){
+        cc[k*3] = s2l(Math.min(1, col[0])) * (col[0] > 1 ? col[0] : 1);
+        cc[k*3+1] = s2l(Math.min(1, col[1])) * (col[1] > 1 ? col[1] : 1);
+        cc[k*3+2] = s2l(Math.min(1, col[2])) * (col[2] > 1 ? col[2] : 1);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+      g.deleteAttribute('uv'); g.deleteAttribute('normal');
+      parts.push(g);
+    }
+  });
+  if(!parts.length) return;
+  const geo = mergeGeometries(parts, false);
+  for(const g of parts) g.dispose();
+  if(!geo) return;
+  tripMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({vertexColors:true,
+    transparent:true, opacity: riding ? 0.85 : 0.92,
+    depthTest: riding, depthWrite:false, fog:false}));
+  tripMesh.renderOrder = riding ? 2 : 900;
+  tripMesh.frustumCulled = false;
+  scene.add(tripMesh);
+}
+
+/* --- the tool ------------------------------------------------------------- */
+function showTransitOverlay(){
+  if(metroMesh) metroMesh.visible = overlayOn();
+  updateVehicleDots();
+}
+function tripStart(){
+  if(cine.mode !== 'off') stopCinema();
+  if(state.mode === 'edit') setMode('view');
+  trip.on = true; trip.a = trip.b = null; trip.routes = null; trip.rider = null;
+  clearTripMesh();
+  $('btnTrip').classList.add('on');
+  $('trip').classList.add('show');
+  showTransitOverlay();
+  tripRender();
+  toast('Click where the journey starts');
+}
+function tripStop(){
+  tripEndRide();
+  trip.on = false; trip.a = trip.b = null; trip.routes = null; trip.done = false;
+  mmHide();
+  clearTripMesh();
+  $('btnTrip').classList.remove('on');
+  $('trip').classList.remove('show');
+  showTransitOverlay();
+}
+function tripClick(idx){
+  if(idx < 0) return;
+  const o = state.objects[idx];
+  if(!o || o._node === undefined || o._node < 0){ toast('Nothing can reach that from the street'); return; }
+  if(!trip.a || (trip.a && trip.b)){ trip.a = o; trip.b = null; trip.routes = null; toast('Now click the destination'); }
+  else if(o === trip.a){ toast('Pick somewhere else to travel to'); return; }
+  else { trip.b = o; trip.routes = tripPlan();
+         const best = TRIP_MODES.filter(m => trip.routes[m.k])
+                                .sort((x, y2) => trip.routes[x.k].total - trip.routes[y2.k].total)[0];
+         if(best) trip.pick = best.k;
+         buildTripMesh(); }
+  tripRender();
+}
+/* Which of the three things a traveller can be doing right now. Read it off
+   their live state rather than from distance covered along the planned route:
+   the legs the simulation builds are not identical to the polyline the planner
+   drew, so anything measured against the plan drifts. */
+function tripPhase(a){
+  if(!a) return null;
+  if(a.state === 'wait') return 'wait';
+  if(a.state === 'ride') return 'ride';      // aboard an actual tram
+  if(a.state === 'go'){
+    const k = a.pk && a.pk[a.seg];
+    return (k === 'subway' || k === 'tram' || k === 'trunk' || k === 'bike') ? 'ride' : 'walk';
+  }
+  return 'walk';
+}
+/* The cursor only ever moves forward, so a momentary flicker in state cannot
+   send the checklist backwards. */
+function tripAdvance(phase){
+  if(phase === trip.phase) return;
+  trip.phase = phase;
+  const steps = trip.steps || [];
+  for(let i = trip.step; i < steps.length; i++)
+    if(steps[i].k === phase){ trip.step = i; return; }
+}
+function tripRideHTML(){
+  const steps = trip.steps || [];
+  const done = !trip.rider;
+  let h = '<div class="tpclock"><b id="tripClock">0:00</b><span>' +
+          (done ? 'arrived · estimated ' + hhmm(trip.eta) : 'of about ' + hhmm(trip.eta)) +
+          '</span></div><div class="tpsteps">';
+  steps.forEach((st, i) => {
+    const cls = i < trip.step ? 'done' : i === trip.step ? 'now' : '';
+    const detail = st.k === 'wait' ? 'up to ' + hhmm(st.secs)
+                 : Math.round(st.len) + ' m · ' + hhmm(st.secs);
+    h += '<div class="tpstep ' + cls + '"><i></i><span class="tpsl">' + st.label +
+         '</span><span class="tpsd">' + detail + '</span></div>';
+  });
+  h += '</div><button class="btn wide" id="tripQuit">' +
+       (done ? 'Back to the routes' : 'Stop the journey') + '</button>';
+  return h;
+}
+function tripTick(){
+  if(!trip.rider && !trip.done) return;
+  const c = $('tripClock');
+  if(c){
+    const t = trip.rider ? Math.max(0, (state.simTime - trip.t0) * 3600) : (trip.took || 0);
+    const m = Math.floor(t / 60), sec = Math.floor(t % 60);
+    c.textContent = m + ':' + String(sec).padStart(2, '0');
+  }
+  const rows = document.querySelectorAll('#tripBody .tpstep');
+  rows.forEach((el, i) => {
+    el.classList.toggle('done', i < trip.step);
+    el.classList.toggle('now', i === trip.step);
+  });
+}
+function tripRender(){
+  const el = $('tripBody');
+  if(!el) return;
+  if(trip.rider || trip.done){
+    el.innerHTML = tripRideHTML();
+    const q = $('tripQuit');
+    if(q) q.addEventListener('click', () => { trip.done = false; tripEndRide(); tripRender(); });
+    tripTick();
+    return;
+  }
+  const name = o => o ? (PLURALS[o.type] ? PLURALS[o.type][0] : TYPES[o.type].label) : '—';
+  let h = '<div class="tprow"><span class="tpk">From</span><b>' + name(trip.a) + '</b></div>' +
+          '<div class="tprow"><span class="tpk">To</span><b>' + name(trip.b) + '</b></div>';
+  if(!trip.a) h += '<div class="tphint">Click a building or a park to start from.</div>';
+  else if(!trip.b) h += '<div class="tphint">Now click where you want to go.</div>';
+  else {
+    const any = TRIP_MODES.some(m => trip.routes && trip.routes[m.k]);
+    if(!any) h += '<div class="tphint">There is no way through between those two.</div>';
+    else {
+      const best = Math.min(...TRIP_MODES.map(m => (trip.routes[m.k] || {total:Infinity}).total));
+      for(const m of TRIP_MODES){
+        const r = trip.routes[m.k];
+        const on = m.k === trip.pick ? ' on' : '';
+        if(!r){
+          const why = m.k === 'bike' ? 'no bike path goes that way'
+                    : m.k === 'tram' ? 'no tram service links them'
+                    : m.k === 'subway' ? 'no subway service links them' : 'no way through';
+          h += '<div class="tpm off"><i style="background:' + m.sw + '"></i>' +
+               '<span class="tpn">' + m.n + '</span><span class="tpt">&mdash;</span>' +
+               '<span class="tpd">' + why + '</span></div>';
+          continue;
+        }
+        const bits = [];
+        if(r.onFoot > 30) bits.push(hhmm(r.onFoot) + ' on foot');
+        if(r.riding > 30) bits.push(hhmm(r.riding) + ' riding');
+        if(r.boards) bits.push(r.boards + (r.boards > 1 ? ' boardings' : ' boarding'));
+        h += '<button class="tpm' + on + '" data-tm="' + m.k + '">' +
+             '<i style="background:' + m.sw + '"></i>' +
+             '<span class="tpn">' + m.n + (r.total === best ? ' <em>fastest</em>' : '') + '</span>' +
+             '<span class="tpt">' + hhmm(r.total) + '</span>' +
+             '<span class="tpd">' + (r.dist / 1000).toFixed(1) + ' km · ' + bits.join(' · ') + '</span></button>';
+      }
+      const st = (trip.routes[trip.pick] || {}).steps || [];
+      if(st.length){
+        h += '<div class="tpsteps plan">';
+        for(const q of st)
+          h += '<div class="tpstep"><i></i><span class="tpsl">' + q.label + '</span>' +
+               '<span class="tpsd">' + (q.k === 'wait' ? 'up to ' + hhmm(q.secs)
+                 : Math.round(q.len) + ' m · ' + hhmm(q.secs)) + '</span></div>';
+        h += '</div>';
+      }
+      h += '<button class="btn wide" id="tripGo">Take this journey</button>';
+    }
+  }
+  el.innerHTML = h;
+  el.querySelectorAll('.tpm[data-tm]').forEach(b => b.addEventListener('click', () => {
+    trip.pick = b.dataset.tm; buildTripMesh(); tripRender(); mmDraw();
+  }));
+  const go = $('tripGo');
+  if(go) go.addEventListener('click', tripTakeIt);
+}
+
+/* --- sending somebody ------------------------------------------------------ */
+function tripTakeIt(){
+  const m = TRIP_MODES.find(x => x.k === trip.pick);
+  const r = trip.routes && trip.routes[trip.pick];
+  if(!m || !r) return;
+  tripEndRide();
+  const a = {};
+  initAgent(a, () => trip.a, () => trip.b);
+  a.trip = true;
+  a.home = trip.a; a.work = trip.b;
+  a.cyclist = trip.pick === 'bike';
+  a.spd = 1.0;   // the pace of each leg comes from the leg, not the person
+  a.sporty = false; a.roofer = false;
+  a.color = 0xffe08a;
+  a.at = trip.a; a.state = 'in'; a.hidden = true;
+  a.x = trip.a._ex; a.z = trip.a._ez; a.y = 0;
+  a.tripMode = TRIP_RUN[m.k];
+  agents.push(a);
+  refreshAgents();                       // give it a slot in the instanced mesh
+  /* Send them along the route that was drawn, rather than asking the router for
+     one again: the planners search their own networks, and re-deriving a path
+     from the street lattice would put the traveller somewhere other than the
+     line the panel is quoting. */
+  a.dest = trip.b; a.purpose = 'work'; a.at = trip.a;
+  a.tripRail = !!RAIL_PROFILE[a.tripMode];
+  a.boarded = 0; a.holdUntil = 0; a.holding = 0;
+  a.legs = tripLegs(r);
+  a.mode = trip.pick === 'bike' ? 'bike' : 'walk';
+  beginLeg(a, 0);
+  trip.rider = a;
+  trip.t0 = state.simTime;
+  trip.eta = r.total;
+  trip.steps = r.steps || [];
+  trip.step = 0; trip.phase = null;
+  mmSetup(r);
+  buildTripMesh();      // one route now, down at street level
+  tripRender();
+  startFollow(a, 'agent', 'Travelling ' + m.n.toLowerCase().replace('on foot', 'on foot'));
+  $('cineKind').textContent = 'Your journey';
+  toast('Following the traveller · Esc or Exit to stop');
+}
+/* Turn the plan into legs the simulation understands. A tram journey is split
+   at each boarding so the traveller waits on the platform for a real vehicle
+   and then rides it — being carried by the actual tram is the whole point, and
+   it is also what keeps the checklist in step with what you can see happening.
+   Anything with no tram in it is one continuous leg. */
+function tripLegs(r){
+  const walkLeg = (from, to) => ({k:'walk',
+    px: r.pts.slice(from, to + 1).map(p => p[0]),
+    pz: r.pts.slice(from, to + 1).map(p => p[1]),
+    pk: (r.pk || []).slice(from, to)});
+  const rides = (r.rides || []).slice().sort((a, b) => a.from - b.from);
+  if(!rides.length) return [walkLeg(0, r.pts.length - 1)];
+  const legs = [];
+  let cut = 0;
+  for(const rd of rides){
+    const on = rd.board, off = rd.off;
+    const leg = rd.want === 'subway'
+      ? findMetroLeg(on._cx, on._cz, off._cx, off._cz)
+      : findTramLeg(on._cx, on._cz, off._cx, off._cz);
+    if(!leg) continue;                       // no service found: walk this bit
+    if(rd.from > cut) legs.push(walkLeg(cut, rd.from));
+    legs.push({k: rd.want === 'subway' ? 'metro' : 'tram', pi:leg.pi,
+               fromI:leg.from.i, toI:leg.to.i, toUid:leg.to.uid,
+               ex:on._ex, ez:on._ez, dx:off._ex, dz:off._ez});
+    cut = rd.to;
+  }
+  if(!legs.length) return [walkLeg(0, r.pts.length - 1)];
+  const tail = walkLeg(cut, r.pts.length - 1);
+  const lastRide = legs[legs.length - 1];
+  if(lastRide && (lastRide.k === 'tram' || lastRide.k === 'metro')){
+    tail.px.unshift(lastRide.dx); tail.pz.unshift(lastRide.dz); tail.pk.unshift('walk');
+  }
+  if(tail.px.length > 1) legs.push(tail);
+  return legs;
+}
+/* ---- the minimap ----------------------------------------------------------
+   A plan of the journey in the corner: the city greyed out behind, the route on
+   top, and a live dot for the traveller. The city layer is drawn once when the
+   journey starts and kept — redrawing ten thousand buildings every frame to
+   move one dot would be absurd. */
+const mm = {on:false, base:null, x0:0, z0:0, scale:1, S:190};
+function mmSetup(r){
+  const cv = $('mmc');
+  if(!cv || typeof cv.getContext !== 'function'){ mm.on = false; return; }
+  const S = mm.S;
+  // a window round the journey, with enough of the city either side for context
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for(const p of r.pts){
+    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+    minZ = Math.min(minZ, p[1]); maxZ = Math.max(maxZ, p[1]);
+  }
+  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+  const span = Math.max(maxX - minX, maxZ - minZ, 260) * 1.5;
+  mm.scale = S / span;
+  mm.x0 = cx - span / 2; mm.z0 = cz - span / 2;
+  const base = document.createElement('canvas');
+  if(!base || typeof base.getContext !== 'function'){ mm.on = false; return; }
+  base.width = S; base.height = S;
+  const g = base.getContext('2d');
+  if(!g){ mm.on = false; return; }
+  const px = x => (x - mm.x0) * mm.scale, pz = z => (z - mm.z0) * mm.scale;
+  g.fillStyle = '#11141a'; g.fillRect(0, 0, S, S);
+  for(const o of state.objects){
+    const T = TYPES[o.type];
+    if(!T || T.kind === 'transit') continue;
+    const c = objCentre(o), f = footprint(o);
+    const w = Math.max(1.2, f.w * CELL * mm.scale), d = Math.max(1.2, f.d * CELL * mm.scale);
+    const x = px(c.x) - w / 2, z = pz(c.z) - d / 2;
+    if(x > S || z > S || x + w < 0 || z + d < 0) continue;
+    g.fillStyle = T.kind === 'green' ? 'rgba(90,150,95,.42)'
+                : T.kind === 'landmark' ? 'rgba(210,190,150,.5)'
+                : 'rgba(150,162,178,.38)';
+    g.fillRect(x, z, w, d);
+  }
+  // the transit lines, faintly, so the route reads against something
+  g.lineWidth = 1;
+  for(const path of (G.tramPaths || []).concat(G.metroPaths || [])){
+    g.strokeStyle = 'rgba(120,140,170,.35)';
+    g.beginPath();
+    path.pts.forEach((w2, i) => i ? g.lineTo(px(w2.x), pz(w2.z)) : g.moveTo(px(w2.x), pz(w2.z)));
+    g.stroke();
+  }
+  mm.base = base;
+  mm.on = true;
+  $('minimap').classList.add('show');
+}
+function mmDraw(){
+  if(!mm.on) return;
+  const cv = $('mmc');
+  const g = cv && cv.getContext && cv.getContext('2d');
+  if(!g) return;
+  const S = mm.S, r = trip.routes && trip.routes[trip.pick];
+  const px = x => (x - mm.x0) * mm.scale, pz = z => (z - mm.z0) * mm.scale;
+  g.clearRect(0, 0, S, S);
+  if(mm.base) g.drawImage(mm.base, 0, 0);
+  if(r && r.pts.length > 1){
+    const m = TRIP_MODES.find(x => x.k === trip.pick);
+    g.strokeStyle = (m && m.sw) || '#fff';
+    g.lineWidth = 2.6; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath();
+    r.pts.forEach((p, i) => i ? g.lineTo(px(p[0]), pz(p[1])) : g.moveTo(px(p[0]), pz(p[1])));
+    g.stroke();
+    const ends = [[r.pts[0], '#8ef0a8'], [r.pts[r.pts.length - 1], '#ff8f6b']];
+    for(const [p, col] of ends){
+      g.fillStyle = col;
+      g.beginPath(); g.arc(px(p[0]), pz(p[1]), 3.4, 0, 7); g.fill();
+    }
+  }
+  const a = trip.rider;
+  if(a){
+    const x = px(a.x), z = pz(a.z);
+    g.fillStyle = 'rgba(255,255,255,.30)';
+    g.beginPath(); g.arc(x, z, 8, 0, 7); g.fill();
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(x, z, 3.6, 0, 7); g.fill();
+  }
+  const lab = $('mmlab');
+  if(lab) lab.textContent = trip.b
+    ? (TRIP_MODES.find(x => x.k === trip.pick) || {}).n + ' · ' +
+      Math.round(mm.S / mm.scale) + ' m across'
+    : '';
+}
+function mmHide(){
+  mm.on = false; mm.base = null;
+  const el = $('minimap');
+  if(el) el.classList.remove('show');
+}
+function tripEndRide(){
+  trip.done = false;
+  mmHide();
+  setTimeout(buildTripMesh, 0);   // back to comparing all four
+  if(!trip.rider) return;
+  const i = agents.indexOf(trip.rider);
+  if(i >= 0) agents.splice(i, 1);
+  trip.rider = null;
+  if(cine.mode === 'follow') stopCinema();
+  refreshAgents();
+}
+/* Watch for the traveller getting there, and say how long it actually took. */
+function tripWatch(){
+  const a = trip.rider;
+  if(!a) return;
+  tripAdvance(tripPhase(a));
+  tripTick();
+  mmDraw();
+  if(a.state === 'in' && a.at === trip.b){
+    const took = (state.simTime - trip.t0) * 3600;
+    trip.step = (trip.steps || []).length;
+    tripTick();
+    toast('Arrived — ' + hhmm(took) + ' (estimated ' + hhmm(trip.eta) + ')');
+    trip.took = took;
+    trip.done = true;
+    trip.rider = null;
+    mmDraw();
+    buildTripMesh();
+    const i = agents.indexOf(a);
+    if(i >= 0) agents.splice(i, 1);
+    if(cine.mode === 'follow') stopCinema();
+    refreshAgents();
+    tripRender();
+  }
+}
+
 function startFlyby(){
   if(state.mode === 'edit') setMode('view');
   cine.mode = 'fly'; cine.shot = null; cine.recent.length = 0;
@@ -5994,8 +7384,11 @@ function startFollow(subject, kind, label){
   // so that starts in first person. Scrolling moves between the two either way.
   const tram = kind === 'tram';
   cine.yaw = 0; cine.pitch = tram ? -0.16 : -0.06; cine.hiddenT = 0;
+  /* Scroll out a long way. Sixteen metres is a shoulder shot; being able to
+     pull back several hundred turns following someone into a live overview of
+     their journey, which is what you actually want when you are watching one. */
   cine.back = tram ? 24 : 0;
-  cine.maxBack = tram ? 44 : 16;
+  cine.maxBack = tram ? 520 : 480;
   const p = subjectPose();
   cine.pos.set(p ? p.x : cam.target.x, p ? p.y + p.eye : 2, p ? p.z : cam.target.z);
   cine.look.copy(cine.pos).add(new THREE.Vector3(p ? p.hx * 20 : 20, 0, p ? p.hz * 20 : 0));
@@ -6011,6 +7404,13 @@ function startFollow(subject, kind, label){
 }
 function stopCinema(){
   if(cine.mode === 'off') return;
+  if(trip.rider){                       // leaving the ride ends the journey
+    const i = agents.indexOf(trip.rider);
+    if(i >= 0) agents.splice(i, 1);
+    trip.rider = null;
+    refreshAgents();
+    if(trip.on) setTimeout(tripRender, 0);
+  }
   cine.mode = 'off'; cine.subject = null; cine.shot = null;
   document.body.classList.remove('cinema');
   $('cine').classList.remove('show');
@@ -6474,6 +7874,42 @@ function setDensity(i){
   refreshAgents();
   toast(DENSITY[state.density].n + ' crowds — ' + fmtN(agents.length) + ' figures');
 }
+/* Colours live in vertex buffers, so changing the look means rebuilding the
+   city. Everything else — the trees, the lighting, the glow — follows from
+   that same rebuild. */
+function setArt(k, quiet){
+  const next = artOf(k);
+  const changed = next.k !== ART.k;
+  ART = next;
+  state.art = ART.k;
+  document.querySelectorAll('#artseg button').forEach(b => b.classList.toggle('on', b.dataset.ar === ART.k));
+  renderer.toneMappingExposure = ART.dark ? 1.34 : 1.12;
+  matCity.metalness = ART.dark ? 0.34 : 0.06;      // wet glass and chrome
+  matCity.roughness = ART.dark ? 0.34 : 0.78;
+  matDetail.metalness = ART.dark ? 0.30 : 0.0;     // rain on the pavement
+  matDetail.roughness = ART.dark ? 0.30 : 0.94;
+  matTrunk.color.setHex(ART.dark ? 0x8d949c : 0x6b4f38);
+  matTrunk.roughness = ART.dark ? 0.30 : 0.95;
+  matTrunk.metalness = ART.dark ? 0.75 : 0.0;
+  /* Keep one channel near zero. A glow that is strong in all three tone-maps
+     to white, which is what makes a neon city read as "black with white
+     windows" instead of as neon. */
+  cityU.uWarm.value.set(ART.dark ? 0.08 : 1.0, ART.dark ? 0.78 : 0.72, ART.dark ? 1.06 : 0.38);
+  /* Windows are the background hum, not the subject. Turned right down so the
+     neon on the edges of the buildings is what carries the skyline. */
+  cityU.uGlowK.value = ART.dark ? 0.55 : 2.6;
+  matPool.color.setHex(ART.dark ? 0x46e0ff : 0xffb867);
+  /* The terrain is baked once when the world is made, not by rebuildCity, so a
+     style change has to remake it — otherwise the neon city sits on a bright
+     green hillside. */
+  if(changed){
+    scene.remove(terrainMesh);
+    terrainMesh.geometry.dispose();
+    terrainMesh = buildTerrain();
+    scene.add(terrainMesh);
+  }
+  if(changed && !quiet) rebuildCity();
+}
 function setPeopleSize(v){
   state.pplSize = clamp(v, 0.4, 2.4);
   const sl = $('pplsize'), lab = $('pplsizev');
@@ -6483,10 +7919,13 @@ function setPeopleSize(v){
 document.querySelectorAll('#modeseg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 document.querySelectorAll('#speedseg button').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.sp)));
 document.querySelectorAll('#densityseg button').forEach(b => b.addEventListener('click', () => setDensity(+b.dataset.dn)));
+document.querySelectorAll('#artseg button').forEach(b => b.addEventListener('click', () => setArt(b.dataset.ar)));
 $('pplsize').addEventListener('input', e => setPeopleSize(+e.target.value / 100));
 $('btnReset').addEventListener('click', () => resetCamera());
 $('btnUndo').addEventListener('click', () => undo());
 $('btnFly').addEventListener('click', () => cine.mode === 'fly' ? stopCinema() : startFlyby());
+$('btnTrip').addEventListener('click', () => trip.on ? tripStop() : tripStart());
+$('tripExit').addEventListener('click', tripStop);
 $('cineExit').addEventListener('click', () => stopCinema());
 $('cineNext').addEventListener('click', () => nextShot());
 $('statPop').addEventListener('click', () =>
@@ -6562,6 +8001,7 @@ function serialise(){
   return {
     v: 2, seed: state.seed, hour: state.hour, grid: GRID,
     ppl: {size: state.pplSize, den: state.density}, layout: state.layout, dens: state.dens,
+    art: state.art,
     camera: {t:[cam.target.x, cam.target.y, cam.target.z], d:cam.dist, a:cam.az, e:cam.el},
     /* `tr` marks the arterials, on both the cells and the tram lines that run
        down them. Leave it out and a saved city reloads with its corridors as
@@ -6582,6 +8022,10 @@ function applyCity(d){
   state.layout = layoutOf(d.layout).k;
   state.dens = densityOf(d.dens).k;
   DENS = densityOf(state.dens);
+  /* Set the look before the objects go in: the tree colours are chosen as each
+     tree is made, so a style applied afterwards would leave a neon city full of
+     green trees until the next rebuild. */
+  setArt(artOf(d.art).k, true);   // quiet: applyCity rebuilds once at the end
   if(d.ppl){
     setPeopleSize(typeof d.ppl.size === 'number' ? d.ppl.size : 1.0);
     state.density = clamp(d.ppl.den | 0, 0, DENSITY.length - 1);
@@ -8225,7 +9669,7 @@ function phaseName(h){
 }
 
 function updateWorld(h, dt){
-  const p = dayPalette(h);
+  const p = artPalette(dayPalette(h));
   const sd = sunDirection(h);
 
   const lTop = L3(p.top), lMid = L3(p.mid), lBot = L3(p.bot), lSun = L3(p.sun), lFog = L3(p.fog);
@@ -8255,6 +9699,9 @@ function updateWorld(h, dt){
   fill.intensity = 0.06 + p.hemi * 0.16;
 
   scene.fog.color.setRGB(lFog[0], lFog[1], lFog[2]);
+  // smog closes the city in; clear air lets it run to the horizon
+  scene.fog.near = ART.dark ? 150 : 520;
+  scene.fog.far  = ART.dark ? 1500 : 2900;
 
   cityU.uNight.value = p.night;
   cityU.uLit.value = p.lit;
@@ -8271,20 +9718,28 @@ function updateWorld(h, dt){
   waterU.uNight.value = p.night;
 
   const n = p.night;
-  if(lampMesh){ lampMesh.visible = n > 0.10; matBulb.color.setRGB(n, n * 0.82, n * 0.58); }
+  if(lampMesh){
+    lampMesh.visible = n > 0.10;
+    if(ART.dark) matBulb.color.setRGB(n * 0.30, n * 0.92, n * 1.0);      // cold arc light
+    else matBulb.color.setRGB(n, n * 0.82, n * 0.58);
+  }
   if(beamMesh){
     const pulse = 0.72 + 0.28 * Math.sin(perfNow * 0.0022);
     matBeam.opacity = 0.34 * pulse;
     matCap.opacity = 0.92 * pulse;
   }
   updateFloods(n);
-  if(poolMesh){ poolMesh.visible = n > 0.10; matPool.opacity = 0.20 * n; }
+  if(poolMesh){ poolMesh.visible = n > 0.10; matPool.opacity = (ART.dark ? 0.40 : 0.20) * n; }
   matTram.emissiveIntensity = 0.6 * n;
   matTramLamp.color.setRGB(0.42 + 0.58 * n, 0.40 + 0.54 * n, 0.34 + 0.46 * n);
   matTramBeam.opacity = 0.30 * n;
   if(tramBeamMesh) tramBeamMesh.visible = n > 0.12;
   const shopV = lerp(0.24, 1.75, n);
-  matShop.color.setRGB(shopV, shopV, shopV);
+  /* In cyberpunk the neon carries its own colour and its own brightness, so the
+     material is a plain pass-through — multiply it up as well and every tube
+     saturates to white. */
+  if(ART.dark) matShop.color.setRGB(1, 1, 1);
+  else matShop.color.setRGB(shopV, shopV, shopV);
 }
 
 let hudT = 0;
@@ -8322,7 +9777,9 @@ function frame(now){
   const boost = state.speed === 0 ? 0 : clamp(Math.sqrt(state.speed), 1, 26);
   if(boost > 0){
     updateAgents(dt, state.hour, boost);
+    tripWatch();
     updateTrams(dt, boost);
+    updateMetros(dt);
   }
   if(now - hudT > 120){ hudT = now; updateHUD(state.hour); }
 
