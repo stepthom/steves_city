@@ -338,13 +338,16 @@ const CITY_SIZES = [
 ];
 
 const DAY_SECONDS = 86400;           // real seconds for one full day at 1x — 1x is real time
-const MAX_AGENTS  = 16000;
-/* How many figures to draw, as a multiple of the "one figure per 62 residents" baseline. */
+const MAX_AGENTS  = 32000;
+/* How many figures to draw, as a multiple of the "one figure per 62 residents"
+   baseline. `cap` is each setting's own share of the ceiling: without it a big
+   city pins the top three settings to the same number and the control stops
+   doing anything visible. */
 const DENSITY = [
-  {n:'Light',      k:0.70},
-  {n:'Medium',     k:2.00},
-  {n:'Heavy',      k:3.80},
-  {n:'Very heavy', k:6.00},
+  {n:'Light',      k:1.40, cap:0.25},
+  {n:'Medium',     k:4.00, cap:0.50},
+  {n:'Heavy',      k:7.60, cap:0.75},
+  {n:'Very heavy', k:12.0, cap:1.00},
 ];
 
 const isStreetIdx = i => ((i % PITCH) + PITCH) % PITCH === PITCH - 1;
@@ -453,28 +456,47 @@ const TYPES = {
   office:    {label:'Office',       cat:'Work',    kind:'building', use:'work', w:3, d:3, stories:80,
               minS:4, maxS:200, minW:2, maxW:5, sw:'#8fb4c4', job:3.4},
   hospital:  {label:'Hospital',     cat:'Civic',   kind:'building', use:'work', w:4, d:4, stories:24,
-              minS:4, maxS:60, minW:3, maxW:5, sw:'#e3ebee', job:3.2},
-  school:    {label:'School',       cat:'Civic',   kind:'building', use:'work', w:4, d:3, stories:5,
-              minS:4, maxS:16, minW:3, maxW:5, sw:'#e8d6a8', job:14},
+              minS:4, maxS:60, minW:3, maxW:10, minD:3, maxD:10, spans:1, sw:'#e3ebee', job:3.2},
+  /* A school is a campus: several storeys and a footprint that usually takes
+     more than one block. `job` counts everyone who travels there daily, staff
+     and senior pupils, so it is per storey per cell like everything else — but
+     it has to be recalibrated whenever the typical size changes. Leave it at
+     the figure tuned for a 4x3x5 school and a campus comes out with six
+     thousand staff, and schools alone become two thirds of the city's jobs. */
+  school:    {label:'School',       cat:'Civic',   kind:'building', use:'work', w:6, d:5, stories:9,
+              minS:4, maxS:16, minW:3, maxW:10, minD:3, maxD:10, spans:1, sw:'#e8d6a8', job:2.2},
   library:   {label:'Library',      cat:'Civic',   kind:'building', use:'work', w:3, d:3, stories:4,
               minS:4, maxS:14, minW:2, maxW:4, sw:'#dcc9b0', job:8},
+  cityhall:  {label:'City Hall',    cat:'Civic',   kind:'building', use:'work', w:5, d:5, stories:7,
+              minS:4, maxS:16, minW:4, maxW:8, minD:4, maxD:8, spans:1,
+              sh:2.1, sw:'#efe6cc', job:2.3},
 
-  stadium:   {label:'Stadium',      cat:'Civic',   kind:'building', use:'work', w:7, d:7, stories:9,
+  sportsmega:{label:'Sports Megatower', cat:'Sports', kind:'building', use:'work', w:6, d:6, stories:16,
+              minS:5, maxS:40, minW:5, maxW:10, minD:5, maxD:10, spans:1, leisure:1,
+              sh:2.6, sw:'#57bf8c', job:1.15},
+  stadium:   {label:'Stadium',      cat:'Sports',  kind:'building', use:'work', w:7, d:7, stories:9,
               minS:4, maxS:20, minW:5, maxW:11, spans:1, leisure:1, sw:'#cfd6d2', job:0.55},
-  shopping:  {label:'Shopping',     cat:'Work',    kind:'building', use:'work', w:3, d:3, stories:4,
+  shopping:  {label:'Shopping',     cat:'Commercial', kind:'building', use:'work', w:3, d:3, stories:4,
               minS:2, maxS:14, minW:2, maxW:5, leisure:1, sw:'#e0a86a', job:2.6},
-  mall:      {label:'Shopping Mall', cat:'Work',   kind:'building', use:'work', w:5, d:5, stories:3,
+  mall:      {label:'Shopping Mall', cat:'Commercial', kind:'building', use:'work', w:5, d:5, stories:3,
               minS:2, maxS:8, minW:3, maxW:11, spans:1, leisure:1, hosts:'building', sw:'#e0c9a8', job:2.4},
+  farm:      {label:'Vertical Farm', cat:'Work',   kind:'building', use:'work', w:3, d:4, stories:22,
+              minS:6, maxS:60, minW:2, maxW:5, minD:2, maxD:5, sw:'#76c455', job:0.9},
   factory:   {label:'Factory',      cat:'Work',    kind:'building', use:'work', w:6, d:4, stories:2,
               minS:1, maxS:8, minW:3, maxW:12, minD:2, maxD:12, spans:1, sw:'#b0aca4', job:1.7},
 
   park:      {label:'Park',         cat:'Green', w:3, d:3, kind:'green', use:'leisure', minW:2, maxW:5, sw:'#5c9a4a'},
-  forest:    {label:'Forest',       cat:'Green', w:5, d:5, kind:'green', use:'leisure', minW:2, maxW:12,
-              minD:2, maxD:12, spans:1, hosts:'transit', sw:'#2f6b3a'},
-  lake:      {label:'Lake',         cat:'Green', w:5, d:5, kind:'green', use:'leisure', minW:3, maxW:5, sw:'#3fa6a0'},
-  sports:    {label:'Sports Field', cat:'Green', w:4, d:3, kind:'green', use:'leisure', minW:3, maxW:5, sw:'#6fae52'},
-  sportspark:{label:'Sports Park',  cat:'Green', w:6, d:5, kind:'green', use:'leisure', minW:4, maxW:10,
+  forest:    {label:'Forest',       cat:'Green', w:5, d:5, kind:'green', use:'leisure', minW:2, maxW:22,
+              minD:2, maxD:22, spans:1, hosts:'transit', sw:'#2f6b3a'},
+  lake:      {label:'Lake',         cat:'Green', w:5, d:5, kind:'green', use:'leisure', minW:3, maxW:14,
+              minD:3, maxD:14, spans:1, sw:'#3fa6a0'},
+  sports:    {label:'Sports Field', cat:'Sports', w:4, d:3, kind:'green', use:'leisure', minW:3, maxW:5, sw:'#6fae52'},
+  sportspark:{label:'Sports Park',  cat:'Sports', w:6, d:5, kind:'green', use:'leisure', minW:4, maxW:10,
               minD:4, maxD:10, spans:1, sw:'#8fc85e'},
+  pool:      {label:'Swimming Pool', cat:'Sports', w:3, d:3, kind:'green', use:'leisure',
+              minW:2, maxW:6, minD:2, maxD:6, sw:'#4fb8d8'},
+  playground:{label:'Playground',   cat:'Green', w:2, d:2, kind:'green', use:'leisure',
+              minW:2, maxW:4, minD:2, maxD:4, sw:'#e8a93f'},
   plaza:     {label:'Plaza',        cat:'Green', w:2, d:2, kind:'green', use:'leisure', minW:2, maxW:4, sw:'#d8cbb2'},
   prom:      {label:'Promenade',    cat:'Green', w:3, d:1, kind:'green', use:'leisure', minW:2, maxW:6, minD:1, maxD:3, sw:'#c9b799'},
 
@@ -508,7 +530,7 @@ const LEGACY = {
   bigpark:{type:'park',w:5,d:5},
 };
 
-const CATS = ['Housing','Work','Civic','Green','Transit','Landmarks'];
+const CATS = ['Housing','Work','Commercial','Civic','Sports','Green','Transit','Landmarks'];
 
 /* How a generated city is planned. */
 const LAYOUTS = [
@@ -518,7 +540,20 @@ const LAYOUTS = [
    d:'Business centres by the water, neighbourhoods around them, one great park.'},
   {k:'organized', n:'Organized',
    d:'Offices zoned together well back from the water; homes, schools and shops kept separate.'},
+  {k:'planned',   n:'Planned',
+   d:'Self-contained neighbourhoods on a grid, each with its own schools and tournament park, around one huge central park.'},
 ];
+/* A planned city is built from repeating parts rather than zoned organically. */
+const HOOD_POP   = 10000;     // residents per residential neighbourhood
+const BIZ_JOBS   = 40000;     // workers per business district
+const BIG_EVERY  = 100000;    // one major hospital and one regional mall per this many
+const HOOD_BLK   = 6;         // a neighbourhood is 6 x 6 blocks...
+const HOOD_PITCH = 7;         // ...with a block of open ground between it and the next
+/* The plan of a neighbourhood, in local coordinates. Row 0 is the side facing
+   the central park, and the whole thing is turned so that it always does.
+   A=apartments  S=school  G=its playground and parks  F=its pitch
+   L=library  H=shopping  T=tournament ground  P=parkland */
+const HOOD_MAP = ['AAAAAA', 'AAAAPP', 'SGFLHP', 'SGFPPP', 'SGFTTT', 'PPPTTT'];
 const layoutOf = k => LAYOUTS.find(l => l.k === k) || LAYOUTS[1];
 
 /* How hard the city is built. Denser cities go taller and pack more onto each
@@ -559,13 +594,15 @@ function defaultSpec(type){
   return {type, w:T.w, d:T.d, stories:T.stories || 0, style:0, sport:0,
           tint: T.use === 'home' ? 0 : 6};
 }
-const NO_STYLE = {stadium:1, factory:1, statue:1, fountain:1, cathedral:1};
+const NO_STYLE = {stadium:1, factory:1, statue:1, fountain:1, cathedral:1,
+                  cityhall:1, farm:1, sportsmega:1};
 const hasStyle = type => {
   const T = TYPES[type];
   return T && (T.kind === 'building' || T.kind === 'landmark') && !NO_STYLE[type];
 };
 /* Sports venues agents will travel to for a kickabout. */
-const isSportSite = o => o && (o.type === 'sports' || o.type === 'sportspark');
+const isSportSite = o => o && (o.type === 'sports' || o.type === 'sportspark' ||
+                              o.type === 'pool' || o.type === 'sportsmega');
 function randStyle(){ const r = rnd(); return r < 0.42 ? 0 : r < 0.6 ? 1 : r < 0.78 ? 2 : r < 0.88 ? 3 : 4; }
 function tintForStyle(style, type){
   const arr = STYLE_TINTS[clamp(style | 0, 0, 4)];
@@ -854,10 +891,14 @@ function withFocus(mat){
       '#include <begin_vertex>\n  vFocus = aFocus;');
     sh.fragmentShader = 'varying float vFocus;\nuniform float uFocusOn;\n' + sh.fragmentShader;
     sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
-      if (uFocusOn > 0.5 && vFocus < 0.5) {
-        float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-        gl_FragColor.rgb = mix(vec3(lum * 0.62 + 0.10), gl_FragColor.rgb, 0.16);
-        gl_FragColor.a *= 0.26;
+      if (uFocusOn > 0.5) {
+        if (vFocus < 0.5) {
+          float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+          gl_FragColor.rgb = mix(vec3(lum * 0.50 + 0.07), gl_FragColor.rgb, 0.08);
+          gl_FragColor.a *= 0.13;
+        } else {
+          gl_FragColor.rgb *= 1.16;          // and lift what I asked to see
+        }
       }`);
   };
   mat.customProgramCacheKey = () => myKey;
@@ -913,8 +954,31 @@ function withWindows(mat){
         float band = floor(sty / 10.0 + 0.001);
         sty -= band * 10.0;
         float thr = band < 0.5 ? uLit : (band < 1.5 ? uLitW : uLit24);
-        float cw = 3.0, x0 = 0.13, x1 = 0.87, y0 = 0.26, y1 = 0.90, base = 7.2;
-        if (sty > 3.5)      { cw = 3.7; x0 = 0.29; x1 = 0.71; y0 = 0.30; y1 = 0.84; }
+        /* Styles 0-4 are the ordinary tower architectures, punched with
+           individual windows on a 3.6 m storey. Slots 5-7 are the big halls —
+           a sports megatower, a city hall, a vertical farm. They are glazed in
+           large bays, not domestic windows, so they get a much coarser grid,
+           and their row pitch is their own storey height rather than 3.6 m.
+           Keep these in step with the storey-height multiplier on the type:
+           get it wrong and a 9.4 m sports hall wears two and a half rows of
+           windows meant for a flat. */
+        /* arch = where the window stops being a rectangle and starts closing
+           to a point, as a fraction of its own height. At 1.0 it never does,
+           which is every style but the cathedral. */
+        float cw = 3.0, x0 = 0.13, x1 = 0.87, y0 = 0.26, y1 = 0.90, base = 7.2, rh = 3.6, arch = 1.0;
+        /* The farm's bay must be narrower than its own narrowest facade. Set it
+           wider and a whole face lands inside one cell, so whether that face is
+           glazed at all comes down to where the seed happens to put the phase. */
+        /* 8 cathedral: tall, skinny lancets, few of them, closing to a point.
+           A 7.5 m bay on a 14 m row leaves four to a face and three tiers up a
+           nave — the aisle windows and the clerestory — with each light about
+           1.7 m wide and 8 m tall. Anything on the ordinary 3.6 m storey grid
+           reads as stacked office glazing however narrow you make it. */
+        if (sty > 7.5)      { cw = 7.5; x0 = 0.39; x1 = 0.61; y0 = 0.18; y1 = 0.74; base = 5.0; rh = 14.0; arch = 0.62; }
+        else if (sty > 6.5) { cw = 13.0; x0 = 0.05; x1 = 0.95; y0 = 0.40; y1 = 0.90; base = 4.0; }  // 7 farm: a ribbon per deck
+        else if (sty > 5.5) { cw = 9.0;  x0 = 0.34; x1 = 0.66; y0 = 0.16; y1 = 0.58; rh = 7.56; }   // 6 city hall
+        else if (sty > 4.5) { cw = 12.0; x0 = 0.07; x1 = 0.93; y0 = 0.20; y1 = 0.78; rh = 9.36; }   // 5 megatower
+        else if (sty > 3.5) { cw = 3.7; x0 = 0.29; x1 = 0.71; y0 = 0.30; y1 = 0.84; }
         else if (sty > 2.5) { cw = 2.3; x0 = 0.28; x1 = 0.72; y0 = 0.12; y1 = 0.93; }
         else if (sty > 1.5) { cw = 2.7; x0 = 0.04; x1 = 0.96; y0 = 0.07; y1 = 0.97; }
         else if (sty > 0.5) { cw = 2.5; x0 = 0.25; x1 = 0.75; y0 = 0.15; y1 = 0.95; }
@@ -923,10 +987,18 @@ function withWindows(mat){
         float uu = abs(nn.x) > abs(nn.z) ? vWP.z : vWP.x;
         float fy = vWP.y;
         float su = uu / cw + sdd * 5.7;
-        float sv = fy / 3.6 + 0.15;
+        float sv = fy / rh + 0.15;
         float cu = floor(su), cv = floor(sv);
         vec2 f = vec2(fract(su), fract(sv));
-        float win = horiz * step(x0, f.x) * step(f.x, x1)
+        /* Two-centred pointed arch: above the springing line the half-width
+           follows sqrt(4 - 3k^2) - 1, which leaves the jamb vertically and
+           meets its opposite number at a sharp apex. With arch = 1.0 the
+           springing sits at the head and this collapses back to a rectangle. */
+        float xc = (x0 + x1) * 0.5, xh = (x1 - x0) * 0.5;
+        float yS = y0 + (y1 - y0) * arch;
+        float k = clamp((f.y - yS) / max(1e-4, y1 - yS), 0.0, 1.0);
+        float hw = xh * (f.y <= yS ? 1.0 : (-1.0 + sqrt(max(0.0, 4.0 - 3.0 * k * k))));
+        float win = horiz * step(abs(f.x - xc), hw)
                           * step(y0, f.y) * step(f.y, y1) * step(base, fy);
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55 + vec3(0.05,0.09,0.11), win * 0.78);
         float hsh = fract(sin(cu * 12.9898 + cv * 78.233 + sdd * 411.7) * 43758.5453);
@@ -940,6 +1012,31 @@ function withWindows(mat){
   return mat;
 }
 
+/* Pools and fountains are far too small to use the sea shader — at that size it
+   reads as a dark grey puddle. They get their own bright, chlorinated blue with
+   a slow ripple crossing it. */
+const poolU = {uTime:{value:0}, uNight:{value:0}};
+function withRipple(mat){
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = poolU.uTime;
+    sh.uniforms.uPNight = poolU.uNight;
+    sh.vertexShader = 'varying vec3 vPW;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n  vPW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'varying vec3 vPW;\nuniform float uTime;\nuniform float uPNight;\n' + sh.fragmentShader;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      vec2 rp = vPW.xz * 0.62;
+      float rip = sin(rp.x + uTime * 1.05) * sin(rp.y * 1.27 - uTime * 0.83)
+                + 0.55 * sin(rp.x * 2.3 - uTime * 1.6) * sin(rp.y * 1.9 + uTime * 1.25);
+      diffuseColor.rgb *= 0.90 + 0.16 * rip;
+      diffuseColor.rgb += vec3(0.16, 0.26, 0.30) * max(rip, 0.0) * (1.0 - uPNight * 0.75);`);
+  };
+  mat.customProgramCacheKey = () => 'poolRipple';
+  return mat;
+}
+const matPoolWater = withFocus(withRipple(new THREE.MeshStandardMaterial({
+  vertexColors:true, roughness:0.14, metalness:0.05})));
+let poolWaterMesh = null;
+
 const matCity = withFocus(withWindows(new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.78, metalness:0.06})));
 const matDetail = withFocus(new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.94, metalness:0.0}));
 const matShop = withFocus(new THREE.MeshBasicMaterial({vertexColors:true}));
@@ -947,7 +1044,7 @@ const matShop = withFocus(new THREE.MeshBasicMaterial({vertexColors:true}));
 /* ---- building emblems -----------------------------------------------------
    A small canvas atlas of symbols, mapped onto quads on roofs and facades. */
 const GLYPH = {hospital:0, library:1, school:2, office:3, factory:4, mall:5, stadium:6, subway:7,
-               apartments:8, tramstop:9, shopping:10};
+               apartments:8, tramstop:9, shopping:10, sportsmega:11, farm:12, cityhall:13};
 function makeSignAtlas(){
   const cnv = document.createElement('canvas');
   if(!cnv || typeof cnv.getContext !== 'function') return null;
@@ -1109,6 +1206,44 @@ function makeSignAtlas(){
     x.beginPath(); x.arc(p.c + 2, ty - 15, 10, 0, 7); x.fill();
     x.fillStyle = '#7fb04a';
     x.beginPath(); x.ellipse(p.c + 23, ty - 11, 12, 9, -0.4, 0, 7); x.fill(); }
+  // 11 sports megatower — a runner
+  { const p = plate(11);
+    x.fillStyle = '#2f7d5c';
+    x.beginPath(); x.arc(p.c + 12, p.m - 30, 12, 0, 7); x.fill();      // head
+    x.strokeStyle = '#2f7d5c'; x.lineWidth = 12; x.lineCap = 'round'; x.lineJoin = 'round';
+    x.beginPath();                                                     // torso, leaning forward
+    x.moveTo(p.c + 8, p.m - 14); x.lineTo(p.c - 6, p.m + 6); x.stroke();
+    x.beginPath();                                                     // leading arm
+    x.moveTo(p.c + 6, p.m - 10); x.lineTo(p.c + 34, p.m - 18); x.lineTo(p.c + 38, p.m + 2); x.stroke();
+    x.beginPath();                                                     // trailing arm
+    x.moveTo(p.c + 2, p.m - 4); x.lineTo(p.c - 26, p.m - 8); x.stroke();
+    x.beginPath();                                                     // driving leg
+    x.moveTo(p.c - 6, p.m + 6); x.lineTo(p.c + 12, p.m + 22); x.lineTo(p.c + 10, p.m + 42); x.stroke();
+    x.beginPath();                                                     // trailing leg
+    x.moveTo(p.c - 6, p.m + 6); x.lineTo(p.c - 28, p.m + 18); x.lineTo(p.c - 34, p.m + 40); x.stroke(); }
+  // 12 vertical farm — a sprout on a stacked tray
+  { const p = plate(12);
+    x.strokeStyle = '#3f7d3a'; x.lineWidth = 8; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(p.c, p.m + 18); x.lineTo(p.c, p.m - 24); x.stroke();
+    x.fillStyle = '#5aa844';
+    x.save(); x.translate(p.c - 20, p.m - 20); x.rotate(-0.55);
+    x.beginPath(); x.ellipse(0, 0, 22, 12, 0, 0, 7); x.fill(); x.restore();
+    x.save(); x.translate(p.c + 20, p.m - 32); x.rotate(0.55);
+    x.beginPath(); x.ellipse(0, 0, 22, 12, 0, 0, 7); x.fill(); x.restore();
+    x.fillStyle = '#6b7f8c';                                           // three stacked trays
+    for(let i = 0; i < 3; i++) x.fillRect(p.c - 40, p.m + 20 + i * 12, 80, 7); }
+  // 13 city hall — a domed civic building
+  { const p = plate(13);
+    x.fillStyle = '#4a6b8c';
+    x.beginPath(); x.arc(p.c, p.m - 2, 26, Math.PI, 0); x.fill();      // dome
+    x.fillRect(p.c - 3, p.m - 44, 6, 16);                              // lantern and mast
+    x.beginPath(); x.arc(p.c, p.m - 30, 8, 0, 7); x.fill();
+    x.fillStyle = '#5c7f9e';
+    x.beginPath();                                                     // pediment
+    x.moveTo(p.c - 44, p.m + 6); x.lineTo(p.c, p.m - 16); x.lineTo(p.c + 44, p.m + 6);
+    x.closePath(); x.fill();
+    for(let i = -2; i <= 2; i++) x.fillRect(p.c + i * 17 - 5, p.m + 8, 10, 28);   // columns
+    x.fillRect(p.c - 50, p.m + 36, 100, 10); }                         // stylobate
   const tex = new THREE.CanvasTexture(cnv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
@@ -1188,20 +1323,30 @@ function emitSigns(S, o){
   // sit against the top of the shaft, which may be narrower than the base
   const capW = o._capW || W, capD = o._capD || D;
   const capY = lift + (o._capY !== undefined ? o._capY : st * STORY);
-  // badges hang on all four walls, just below the parapet, clear of any style trim
+  /* Badges hang on all four walls, just below the parapet and clear of any
+     style trim. The wall they hang on is the shaft *above the podium* — the
+     podium is wider, so anything dipping below it is buried inside it and the
+     badge comes out clipped. On a low block the podium is most of the building
+     and the shaft above it is too short to hold a badge at all, so in that case
+     hang it on the podium instead, at the podium's own width. */
   const tall = st > 12;
-  const wallH = Math.max(4, capY - lift);
+  const podH = o._podH || 0, podW = o._podW || W, podD = o._podD || D;
   const scale = o.type === 'apartments' ? 0.8 : 1;
-  const fs = Math.min(clamp(Math.min(capW, capD) * (tall ? 0.42 : 0.36) * scale, 3.2, 16), wallH * 0.62);
-  const fy = Math.max(lift + wallH * 0.45, capY - fs * 0.62 - 1.2);
+  const want = clamp(Math.min(capW, capD) * (tall ? 0.42 : 0.36) * scale, 3.2, 16);
+  let lo = lift + podH, hi = Math.max(capY, lo + 0.6), bw = capW, bd = capD;
+  if(hi - lo < want * 1.25 && podH > hi - lo){
+    lo = lift + 1.0; hi = lift + podH; bw = podW; bd = podD;
+  }
+  const fs = Math.max(1.6, Math.min(want, (hi - lo) * 0.62));
+  const fy = clamp(hi - fs * 0.62 - 1.0, lo + fs / 2 + 0.2, hi - fs / 2 - 0.2);
   const style = o.style | 0;
   const clear = o.type === 'stadium' ? 1.3
               : style === 1 ? 1.05                      // clear the deco fins
               : style === 4 ? 0.8                       // clear the string courses
               : style === 2 ? 0.5
               : 0.6;                                    // clear the cornice
-  const ex = capW / 2 + clear;
-  const ez = capD / 2 + clear;
+  const ex = bw / 2 + clear;
+  const ez = bd / 2 + clear;
   signQuad(S, key, c.x, fy, c.z + ez, fs, fs, 'z+');
   signQuad(S, key, c.x, fy, c.z - ez, fs, fs, 'z-');
   signQuad(S, key, c.x + ex, fy, c.z, fs, fs, 'x+');
@@ -1353,6 +1498,12 @@ function footprint(o){
   return (r % 2) ? {w:d, d:w} : {w, d};
 }
 function storiesOf(o){ const T = TYPES[o.type]; return Math.max(1, o.stories || T.stories || 1); }
+/* Most buildings use the standard floor-to-floor height, but a few have
+   deliberately generous storeys — a sports hall needs the room for a court and
+   the ball above it, a civic hall wants the ceiling. Anything reading a
+   building's height must go through this rather than multiplying by STORY. */
+function storeyH(type){ const T = TYPES[type]; return STORY * ((T && T.sh) || 1); }
+function bldHeight(o){ return storiesOf(o) * storeyH(o.type); }
 function objCentre(o){
   const f = footprint(o);
   return {
@@ -1368,9 +1519,12 @@ function objHeight(o){
   if(o.type === 'statue') return Math.min(footprint(o).w, footprint(o).d) * CELL * 0.36 + 8;
   if(o.type === 'fountain') return 6;
   if(o.type === 'sportspark') return 16;
+  if(o.type === 'pool') return 7;
+  if(o.type === 'playground') return 6;
   if(o.type === 'stadium') return Math.max(9, storiesOf(o) * STORY * 0.62) * 1.5;
   if(o.type === 'forest') return 12;
-  return (o.stories || T.stories) ? storiesOf(o) * STORY + 6 : 3;
+  if(o.type === 'cityhall') return bldHeight(o) * 1.45;      // the dome sits above the block
+  return (o.stories || T.stories) ? bldHeight(o) + 6 : 3;
 }
 
 /* ============================================================================
@@ -1381,19 +1535,24 @@ let trees = [];        // {x,y,z,s,c}
 let lamps = [];        // {x,y,z}
 let glowParts = null;  // shopfronts and signs: dark by day, warm at night
 let lakeParts = null;  // inland water, drawn with the sea shader
+let poolParts = null;  // pools and fountains, drawn with the bright ripple shader
 
 /* Which evening-lighting curve a building follows. */
 function litBand(type){
-  if(type === 'hospital') return LIT_24;
+  if(type === 'hospital' || type === 'sportsmega' || type === 'farm') return LIT_24;
   const T = TYPES[type];
   if(!T) return LIT_HOME;
   return (T.use === 'home' || T.use === 'mixed' || T.use === 'leisure') ? LIT_HOME : LIT_WORK;
 }
 
-function addTree(x, y, z, s, tint){
+/* `bulk` marks a tree as woodland rather than a specimen on a street or in a
+   park. There are two or three orders of magnitude more of the former, they are
+   only ever seen en masse, and they get a much cheaper mesh and their own
+   budget because of it. */
+function addTree(x, y, z, s, tint, bulk){
   const g = 0.55 + rnd() * 0.5;
   const c = tint || [lerp(0.22,0.40,rnd()) , lerp(0.42,0.62,rnd()), lerp(0.20,0.32,rnd())];
-  trees.push({x, y, z, s, c, g, f: curFocus});
+  trees.push({x, y, z, s, c, g, f: curFocus, b: bulk ? 1 : 0});
 }
 
 /* A little park on the roof: lawn, a looping path, raised beds, benches, a
@@ -1509,6 +1668,7 @@ function buildTower(o, L, seedF){
   const podH = Math.min(podFloors, st) * STORY;
   const podOut = isHome ? 3.4 : 1.6;
   const PW = W + podOut, PD = D + podOut;
+  o._podH = podH; o._podW = PW; o._podD = PD;      // the badge needs to clear this
   box(L, PW, podH, PD, c.x, podH / 2, c.z, podColor, sA);
   box(L, PW + 0.7, 0.55, PD + 0.7, c.x, podH, c.z, shade(podColor, 0.76), 0);
   if(isHome) buildShopfronts(L, c, PW, PD, seedF);
@@ -1573,8 +1733,12 @@ function buildTower(o, L, seedF){
     box(L, w * 0.34, 2.6, d * 0.34, c.x + w * 0.16, yy + 2.2, c.z - d * 0.14, shade(base, 0.72), 0);
     if(st > 40) cyl(L, 0.22, 0.4, 12 + seedF * 14, 5, c.x - w * 0.2, yy + 7 + seedF * 7, c.z + d * 0.2, [0.3,0.32,0.34], 0);
   }
-  if(roofPark) buildRoofGarden(L, c.x, c.z, w, d, yy + 0.9);
-  else if(greenRoof){
+  o._roofY = 0;
+  if(roofPark){
+    buildRoofGarden(L, c.x, c.z, w, d, yy + 0.9);
+    // remember the deck so residents can go up and sit on it
+    o._roofY = yy + 1.05 + (o._lift || 0); o._roofW = w; o._roofD = d;
+  } else if(greenRoof){
     const nT = Math.max(2, Math.round(w * d / 90));
     for(let i = 0; i < nT; i++)
       addTree(c.x + rrange(-w/2 + 1.5, w/2 - 1.5), yy + 1.2, c.z + rrange(-d/2 + 1.5, d/2 - 1.5), 0.42 + rnd() * 0.25);
@@ -1776,10 +1940,10 @@ function buildFountain(o, L, seedF){
   disc(L, R * 1.18, c.x, 0.09, c.z, shade(PAVE, 0.98), 28);
   cyl(L, R, R * 1.05, 1.1, 26, c.x, 0.55, c.z, stone, 0);
   cyl(L, R * 0.90, R * 0.90, 0.9, 26, c.x, 0.50, c.z, shade(stone, 0.78), 0);
-  disc(lakeParts, R * 0.90, c.x, 0.95, c.z, [0.16, 0.44, 0.48], 28);
+  disc(poolParts, R * 0.90, c.x, 0.99, c.z, [0.14, 0.58, 0.78], 28);
   cyl(L, R * 0.20, R * 0.30, 1.5, 14, c.x, 1.75, c.z, stone2, 0);
   cyl(L, R * 0.58, R * 0.12, 0.32, 22, c.x, 2.60, c.z, stone, 0);
-  disc(lakeParts, R * 0.50, c.x, 2.78, c.z, [0.18, 0.48, 0.52], 22);
+  disc(poolParts, R * 0.50, c.x, 2.80, c.z, [0.16, 0.62, 0.80], 22);
   cyl(L, R * 0.11, R * 0.15, 1.2, 10, c.x, 3.36, c.z, stone2, 0);
   cyl(L, R * 0.30, R * 0.07, 0.26, 18, c.x, 4.02, c.z, stone, 0);
   // jet and falling water
@@ -1807,7 +1971,7 @@ function buildCathedral(o, L, seedF){
   const base = FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c;
   const stone = shade(base, 1.0), trim = shade(base, 0.80);
   const roofc = [0.30, 0.37, 0.40], lead = [0.36, 0.40, 0.42];
-  const sA = LIT_HOME + 3 + 0.02 + seedF * 0.9;   // gothic glazing, evening light curve
+  const sA = LIT_HOME + 8 + 0.02 + seedF * 0.9;   // slot 8: gothic lancets, evening light curve
   /* (u,v) → world: u along the nave, v across it. */
   const W2 = (u, v) => [c.x + (along ? v : u), c.z + (along ? u : v)];
   const B = (lu, h, lv, u, y, v, col, sd) => {
@@ -1823,14 +1987,16 @@ function buildCathedral(o, L, seedF){
   // nave and side aisles
   B(LEN, H, WID * 0.66, 0, H / 2 + 1.0, 0, stone, sA);
   for(const s of [-1, 1]) B(LEN * 0.90, H * 0.52, WID * 0.17, -LEN * 0.03, H * 0.26 + 1.0, s * WID * 0.415, stone, sA);
-  // transept
-  B(LEN * 0.20, H * 0.90, WID, LEN * 0.06, H * 0.45 + 1.0, 0, stone, sA);
+  /* Transept — a shade wider than the aisles so it genuinely projects. Match
+     the aisle width exactly and the two outer walls share a plane over some
+     270 m2, which flickers. */
+  B(LEN * 0.20, H * 0.90, WID + 1.4, LEN * 0.06, H * 0.45 + 1.0, 0, stone, sA);
   // apse at the east end
   CY(WID * 0.33, WID * 0.33, H * 0.86, 9, -LEN * 0.48, H * 0.43 + 1.0, 0, stone, sA, Math.PI / 9);
   CY(WID * 0.36, 0.4, WID * 0.30, 9, -LEN * 0.48, H * 0.86 + 1.0 + WID * 0.15, 0, roofc, 0, Math.PI / 9);
   // roofs
   B(LEN + 0.8, 1.5, WID * 0.70, 0, H + 1.75, 0, roofc);
-  B(LEN * 0.22, 1.5, WID + 0.6, LEN * 0.06, H * 0.90 + 1.75, 0, roofc);
+  B(LEN * 0.22, 1.5, WID + 2.0, LEN * 0.06, H * 0.90 + 1.75, 0, roofc);
   for(const s of [-1, 1]) B(LEN * 0.92, 0.7, WID * 0.19, -LEN * 0.03, H * 0.52 + 1.4, s * WID * 0.415, lead);
   // flying buttresses
   const nB = clamp(Math.round(LEN / 9), 2, 8);
@@ -1878,7 +2044,7 @@ function buildCathedral(o, L, seedF){
 }
 
 /* One marked-out pitch. Long axis follows the longer side. */
-function drawPitch(L, cx, cz, w, d, sport){
+function drawPitch(L, cx, cz, w, d, sport, noFence){
   const horiz = w >= d;
   const LN = [0.94, 0.95, 0.93];
   const y = 0.13;
@@ -1891,17 +2057,17 @@ function drawPitch(L, cx, cz, w, d, sport){
     const rx = w * 0.46, rz = d * 0.46;
     const TRACK = [0.62, 0.28, 0.22], INF = shade(LAWN2, 1.08);
     const ring = (f, col, yy, th) => {
-      const N = 32;
+      const N = 24;
       for(let i = 0; i < N; i++){
         const a = (i + 0.5) / N * Math.PI * 2;
         const ca = Math.cos(a), sa = Math.sin(a);
-        const seg = 2 * Math.PI * Math.max(rx, rz) / N * 1.4;
+        const seg = 2 * Math.PI * Math.max(rx, rz) / N * 1.5;
         box(L, seg, 0.02, th, cx + ca * rx * f, yy, cz + sa * rz * f, col, 0, -(a + Math.PI / 2));
       }
     };
-    const lane = Math.min(rx, rz) * 0.052;
-    for(let k = 0; k < 4; k++)
-      ring(0.80 + k * 0.058, k % 2 ? TRACK : shade(TRACK, 1.09), 0.11, lane * 1.25);
+    const lane = Math.min(rx, rz) * 0.075;
+    for(let k = 0; k < 3; k++)
+      ring(0.80 + k * 0.078, k % 2 ? TRACK : shade(TRACK, 1.09), 0.11, lane * 1.25);
     disc(L, Math.min(rx, rz) * 0.74, cx, 0.115, cz, INF, 28);
     if(horiz) slab(L, 0.3, rz * 1.2, cx - rx * 0.62, y, cz, LN); else slab(L, rx * 1.2, 0.3, cx, y, cz - rz * 0.62, LN);
     for(let s2 = -1; s2 <= 1; s2 += 2){
@@ -1930,6 +2096,7 @@ function drawPitch(L, cx, cz, w, d, sport){
       slab(L, 0.3, cd * 0.5, cx + cw * 0.24, y, cz, LN);
       box(L, cw * 0.98, 1.1, 0.24, cx, 0.55, cz, [0.22,0.24,0.26], 0);
     }
+    if(!noFence) fenceRect(L, cx, cz, w * 0.99, d * 0.99, 3.2);
   } else if(sport === 2){                            // basketball
     slab(L, w, d, cx, 0.09, cz, [0.40, 0.44, 0.48]);
     const cw = w * 0.86, cd = d * 0.86;
@@ -1943,6 +2110,7 @@ function drawPitch(L, cx, cz, w, d, sport){
       box(L, 0.28, 3.3, 0.28, px, 1.65, pz, [0.30,0.32,0.34], 0);
       box(L, horiz ? 0.24 : 1.7, 1.0, horiz ? 1.7 : 0.24, px - (horiz ? s2 * 1.1 : 0), 3.4, pz - (horiz ? 0 : s2 * 1.1), [0.95,0.95,0.92], 0);
     }
+    if(!noFence) fenceRect(L, cx, cz, w * 0.99, d * 0.99, 3.0);
   } else {                                           // soccer
     slab(L, w, d, cx, 0.09, cz, shade(LAWN2, 1.06));
     const cw = w * 0.9, cd = d * 0.9;
@@ -1960,6 +2128,246 @@ function drawPitch(L, cx, cz, w, d, sport){
   }
 }
 
+/* ---- sports megatower: a stacked sports hall ------------------------------
+   Wide, deep, and with storeys tall enough to hold a full court and the ball
+   above it, which is what makes it read as something other than an office. The
+   height comes almost entirely from the floor-to-floor: sixteen storeys here
+   stand as tall as forty in a tower block, and the deep banding is what sells
+   that at a distance. Courts on the roof, and it keeps its lights on late. -- */
+function buildSportsMega(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const W = f.w * CELL - 3.0, D = f.d * CELL - 3.0;
+  const st = storiesOf(o);
+  const FH = storeyH(o.type);
+  const H = st * FH;
+  const base = FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c;
+  const shell = shade(base, 0.94), rib = shade(base, 0.70), pier = shade(base, 0.62);
+  const glass = [0.52, 0.66, 0.70];
+  const sA = LIT_24 + 5 + 0.02 + seedF * 0.9;    // slot 5: bays the size of a hall
+
+  // a broad plinth: entrances, changing rooms, the ticket hall
+  const PW = W + 3.4, PD = D + 3.4;
+  box(L, PW, FH * 0.85, PD, c.x, FH * 0.425, c.z, pier, 0);
+  box(L, PW + 1.0, 0.7, PD + 1.0, c.x, FH * 0.85, c.z, rib, 0);
+  slab(L, PW + 6, PD + 6, c.x, 0.06, c.z, PAVE2);
+
+  /* Each storey is one deep glazed band with a structural rib under it — a
+     hall you can see into, stacked. */
+  let yy = FH * 0.85;
+  for(let i = 0; i < st; i++){
+    const bh = FH - 1.5;
+    box(L, W, bh, D, c.x, yy + bh / 2, c.z, i % 2 ? glass : shade(glass, 1.06), sA);
+    box(L, W + 1.4, 1.5, D + 1.4, c.x, yy + bh + 0.75, c.z, i % 3 === 2 ? shell : rib, 0);
+    // the courts glow through the long faces after dark
+    if(i % 2 === 0){
+      box(glowParts, W * 0.74, bh * 0.5, 0.5, c.x, yy + bh * 0.55, c.z + D / 2 + 0.35, [1.0, 0.95, 0.80], 0);
+      box(glowParts, W * 0.74, bh * 0.5, 0.5, c.x, yy + bh * 0.55, c.z - D / 2 - 0.35, [1.0, 0.95, 0.80], 0);
+    }
+    yy += FH;
+  }
+  /* Corner cores, full height — stairs, lifts, the structure holding it up.
+     They stand a little *proud* of the glazing rather than flush with it: sit
+     their outer faces exactly on the plane of the glass bands and the two
+     surfaces fight for the same depth, which reads as corners that flicker
+     even with the camera held still. */
+  const CORE = 0.5;
+  for(const sx of [-1, 1]) for(const sz of [-1, 1])
+    box(L, W * 0.15, yy, D * 0.15, c.x + sx * (W / 2 + CORE - W * 0.075), yy / 2,
+        c.z + sz * (D / 2 + CORE - D * 0.075), pier, 0);
+  o._capW = W; o._capD = D; o._capY = yy;
+
+  // open-air courts on the roof, floodlit, behind a high fence
+  const rY = yy + 0.9;                          // the top of the roof slab, not inside it
+  box(L, W + 1.2, 0.9, D + 1.2, c.x, yy + 0.45, c.z, shade(rib, 0.9), 0);
+  const cw = W * 0.40, cd = D * 0.72;
+  for(const sx of [-1, 1]){
+    const px = c.x + sx * W * 0.23;
+    slab(L, cw, cd, px, rY + 0.02, c.z, sx < 0 ? [0.66, 0.40, 0.30] : [0.30, 0.46, 0.60]);
+    slab(L, cw * 0.9, 0.28, px, rY + 0.05, c.z, [0.94, 0.95, 0.93]);
+    slab(L, 0.28, cd * 0.9, px, rY + 0.05, c.z, [0.94, 0.95, 0.93]);
+    box(L, cw * 0.94, 1.05, 0.2, px, rY + 0.55, c.z, [0.22, 0.24, 0.26], 0);
+  }
+  for(let i = 0; i <= 4; i++){
+    const t = -0.5 + i / 4;
+    box(L, 0.13, 3.4, D + 1.2, c.x + t * (W + 1.2), rY + 1.7, c.z, FENCE, 0);
+  }
+  for(const sz of [-1, 1]) box(L, W + 1.2, 3.4, 0.13, c.x, rY + 1.7, c.z + sz * (D + 1.2) / 2, FENCE, 0);
+  // masts, lit while a game is on
+  for(const sx of [-1, 1]) for(const sz of [-1, 1]){
+    const mx = c.x + sx * (W / 2 - 1.2), mz = c.z + sz * (D / 2 - 1.2);
+    box(L, 0.6, 7.5, 0.6, mx, rY + 3.75, mz, MAST, 0);
+    box(L, 1.1, 0.5, 1.1, mx, rY + 7.75, mz, shade(MAST, 0.9), 0);
+    const ry = Math.atan2(c.x - mx, c.z - mz);
+    box(L, 3.0, 0.3, 0.5, mx, rY + 9.0, mz, shade(MAST, 1.1), 0, ry);
+    floods.push({x: mx, y: rY + 9.0, z: mz, ry, o});
+  }
+  lamps.push({x: c.x - PW / 2 - 1.6, z: c.z - PD / 2 - 1.6});
+  lamps.push({x: c.x + PW / 2 + 1.6, z: c.z + PD / 2 + 1.6});
+  for(let i = 0; i < 6; i++){
+    const a = rnd() * Math.PI * 2, r = Math.max(PW, PD) * 0.6 + rnd() * 6;
+    addTree(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r, 0.9 + rnd() * 0.4);
+  }
+}
+
+/* ---- vertical farm: growing decks stacked behind glass --------------------
+   Narrow and tall, every floor a tray of crops under grow lights. The lights
+   are the whole point of the silhouette at night: a farm is the one building in
+   the city glowing pink rather than warm yellow. ---------------------------- */
+function buildFarm(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const W = f.w * CELL - 2.6, D = f.d * CELL - 2.6;
+  const st = storiesOf(o);
+  const H = st * STORY;
+  const frame = [0.72, 0.74, 0.72], core = [0.60, 0.62, 0.60];
+  const glass = [0.62, 0.74, 0.70], leaf = [0.34, 0.56, 0.28];
+  const grow = [1.0, 0.55, 0.86];                    // magenta LEDs
+  const sA = LIT_24 + 7 + 0.02 + seedF * 0.9;        // slot 7: a glazed ribbon per deck
+
+  slab(L, W + 5, D + 5, c.x, 0.06, c.z, PAVE2);
+  box(L, W + 2.2, STORY * 1.15, D + 2.2, c.x, STORY * 0.575, c.z, core, 0);    // packing floor
+  box(L, W + 2.8, 0.5, D + 2.8, c.x, STORY * 1.15, c.z, frame, 0);
+
+  // the service core runs up one narrow side, the growing decks fill the rest
+  const coreW = W * 0.20;
+  const shaftW = W - coreW, sx0 = c.x - W / 2 + coreW + shaftW / 2;
+  box(L, coreW, H, D * 0.86, c.x - W / 2 + coreW / 2, H / 2, c.z, core, 0);
+  let yy = STORY * 1.15;
+  for(let i = 0; i < st; i++){
+    const bh = STORY - 0.7;
+    box(L, shaftW, bh, D, sx0, yy + bh / 2, c.z, glass, sA);
+    // trays of planting, visible through the glazing
+    box(L, shaftW * 0.92, bh * 0.34, D * 0.86, sx0, yy + bh * 0.30, c.z, leaf, 0);
+    box(L, shaftW + 0.9, 0.7, D + 0.9, sx0, yy + bh + 0.35, c.z, frame, 0);
+    if(i % 2 === 0){
+      box(glowParts, shaftW * 0.86, 0.55, 0.4, sx0, yy + bh * 0.72, c.z + D / 2 + 0.3, grow, 0);
+      box(glowParts, shaftW * 0.86, 0.55, 0.4, sx0, yy + bh * 0.72, c.z - D / 2 - 0.3, grow, 0);
+    }
+    yy += STORY;
+  }
+  o._capW = W; o._capD = D; o._capY = yy;
+
+  // glasshouses, water tanks and a lift overrun on top
+  box(L, W, 0.8, D, c.x, yy + 0.4, c.z, frame, 0);
+  const bays = clamp(Math.round(D / 7), 2, 4);
+  for(let i = 0; i < bays; i++){
+    const bz = c.z - D / 2 + D * (i + 0.5) / bays;
+    box(L, W * 0.82, 1.5, D / bays - 0.8, c.x, yy + 1.55, bz, shade(glass, 1.10), 0);
+    tiltBox(L, W * 0.60, 0.35, D / bays - 0.8, c.x - W * 0.19, yy + 2.7, bz, shade(glass, 1.16), 0, 0.42);
+    tiltBox(L, W * 0.60, 0.35, D / bays - 0.8, c.x + W * 0.19, yy + 2.7, bz, shade(glass, 1.16), 0, -0.42);
+  }
+  // the lift overrun sits on top of the roof band and inset from its edge —
+  // flush with it and the two share a plane, which flickers
+  box(L, coreW, 4.2, D * 0.34, c.x - W / 2 + coreW / 2 + 0.4, yy + 2.9, c.z, core, 0);
+  for(const sz of [-1, 1])
+    cyl(L, 1.5, 1.5, 3.0, 10, c.x + W * 0.30, yy + 2.3, c.z + sz * D * 0.30, [0.70, 0.72, 0.74], 0);
+  lamps.push({x: c.x + W / 2 + 1.8, z: c.z - D / 2 - 1.8});
+  for(let i = 0; i < 4; i++){
+    const a = rnd() * Math.PI * 2, r = Math.max(W, D) * 0.62 + rnd() * 5;
+    addTree(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r, 0.85 + rnd() * 0.4);
+  }
+}
+
+/* ---- city hall: the one building in the city that is trying to impress -----
+   Stylobate and a broad flight of steps, a colonnaded portico under a pediment,
+   two lower wings, and a drum carrying a dome and a lantern above the middle.
+   Everything is laid out in (u,v) along the entrance axis so it can be turned
+   to face any street. ------------------------------------------------------- */
+function buildCityHall(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const along = f.d >= f.w;                      // long axis in +z when true
+  const LEN = (along ? f.d : f.w) * CELL - 2.6;
+  const WID = (along ? f.w : f.d) * CELL - 2.6;
+  const st = storiesOf(o);
+  const H = st * storeyH(o.type);
+  const base = FACADES[clamp(o.tint | 0, 0, FACADES.length - 1)].c;
+  const stone = shade(base, 1.02), trim = shade(base, 0.84), dark = shade(base, 0.70);
+  const dome = [0.42, 0.55, 0.56], lead = [0.34, 0.42, 0.44];
+  const sA = LIT_24 + 6 + 0.02 + seedF * 0.9;    // slot 6: tall civic windows, well spaced
+  const W2 = (u, v) => [c.x + (along ? v : u), c.z + (along ? u : v)];
+  const B = (lu, h, lv, u, y, v, col, sd) => {
+    const [bx, bz] = W2(u, v);
+    box(L, along ? lv : lu, h, along ? lu : lv, bx, y, bz, col, sd || 0);
+  };
+  const CY = (rt, rb, h, seg, u, y, v, col, sd, ry) => {
+    const [bx, bz] = W2(u, v);
+    cyl(L, rt, rb, h, seg, bx, y, bz, col, sd || 0, ry || 0);
+  };
+
+  // forecourt, stylobate and the flight of steps up to the portico
+  slab(L, (along ? WID : LEN) + 14, (along ? LEN : WID) + 14, c.x, 0.06, c.z, PAVE2);
+  B(LEN, 1.5, WID, 0, 0.75, 0, dark, 0);
+  for(let i = 0; i < 6; i++)
+    B(1.1, 1.5 - i * 0.25, WID * 0.62, LEN / 2 + 0.6 + i * 1.1, (1.5 - i * 0.25) / 2, 0, trim, 0);
+
+  // the main block, its wings a storey lower
+  const bodyH = H * 0.74, wingH = H * 0.52;
+  B(LEN * 0.52, bodyH, WID, 0, 1.5 + bodyH / 2, 0, stone, sA);
+  for(const sv of [-1, 1])
+    B(LEN * 0.30, wingH, WID * 0.86, sv * LEN * 0.35, 1.5 + wingH / 2, 0, shade(stone, 0.96), sA);
+  B(LEN + 1.6, 1.1, WID + 1.6, 0, 1.5 + wingH, 0, trim, 0);            // cornice over the wings
+  B(LEN * 0.52 + 1.6, 1.2, WID + 1.6, 0, 1.5 + bodyH, 0, trim, 0);     // and over the middle
+
+  // portico: a colonnade, an architrave and a pediment
+  const colH = bodyH * 0.80, pu = LEN / 2 + 1.4;
+  const cols = 6;
+  for(let i = 0; i < cols; i++){
+    const v = (-0.5 + i / (cols - 1)) * WID * 0.78;
+    CY(0.72, 0.86, colH, 10, pu, 1.5 + colH / 2, v, stone, 0);
+    B(2.0, 0.5, 2.0, pu, 1.5 + colH + 0.25, v, trim, 0);
+  }
+  B(3.4, 1.3, WID * 0.94, pu, 1.5 + colH + 1.15, 0, trim, 0);
+  for(let i = 0; i < 5; i++){                                          // stepped pediment
+    const k = 1 - i / 5;
+    B(3.4, 0.62, WID * 0.94 * k, pu, 1.5 + colH + 2.1 + i * 0.62, 0, stone, 0);
+  }
+  // the doors, warm at night
+  B(0.5, colH * 0.55, WID * 0.16, pu + 1.6, 1.5 + colH * 0.275, 0, [0.30, 0.22, 0.16], 0);
+  { const [gx, gz] = W2(pu + 1.9, 0);
+    box(glowParts, along ? WID * 0.16 : 0.4, colH * 0.5, along ? 0.4 : WID * 0.16,
+        gx, 1.5 + colH * 0.28, gz, [1.0, 0.92, 0.74], 0); }
+
+  // drum, dome and lantern over the middle
+  const dR = Math.min(WID, LEN * 0.52) * 0.34;
+  const dY = 1.5 + bodyH + 0.6;
+  CY(dR * 1.18, dR * 1.30, 1.0, 16, 0, dY + 0.5, 0, trim, 0);
+  CY(dR, dR, H * 0.24, 16, 0, dY + 1.0 + H * 0.12, 0, stone, sA);
+  for(let i = 0; i < 8; i++){                                          // pilasters round the drum
+    const a = i * Math.PI / 4;
+    CY(0.34, 0.34, H * 0.24, 6, Math.cos(a) * dR, dY + 1.0 + H * 0.12, Math.sin(a) * dR, trim, 0);
+  }
+  const dTop = dY + 1.0 + H * 0.24;
+  CY(dR * 1.12, dR * 1.12, 0.7, 16, 0, dTop + 0.35, 0, trim, 0);
+  const segs = 5;
+  for(let i = 0; i < segs; i++){                                       // the dome, in rings
+    const t0 = i / segs, t1 = (i + 1) / segs;
+    const r0 = dR * Math.cos(t0 * Math.PI / 2), r1 = dR * Math.cos(t1 * Math.PI / 2);
+    const y0 = dTop + 0.7 + dR * Math.sin(t0 * Math.PI / 2) * 0.92;
+    const y1 = dTop + 0.7 + dR * Math.sin(t1 * Math.PI / 2) * 0.92;
+    CY(r1, r0, y1 - y0, 16, 0, (y0 + y1) / 2, 0, i % 2 ? dome : shade(dome, 1.07), 0);
+  }
+  const lY = dTop + 0.7 + dR * 0.92;
+  CY(dR * 0.20, dR * 0.24, 3.2, 10, 0, lY + 1.6, 0, stone, 0);         // lantern
+  { const [gx, gz] = W2(0, 0);
+    box(glowParts, dR * 0.34, 2.0, dR * 0.34, gx, lY + 1.6, gz, [1.0, 0.94, 0.78], 0); }
+  CY(0.1, dR * 0.26, 2.0, 10, 0, lY + 4.2, 0, lead, 0);
+  B(0.3, 4.0, 0.3, 0, lY + 7.0, 0, lead, 0);
+  o._capW = along ? WID : LEN; o._capD = along ? LEN : WID; o._capY = 1.5 + wingH;
+
+  // a clock on the front of the drum, flagpoles, lamps and forecourt trees
+  { const [cx2, cz2] = W2(dR * 1.02, 0);
+    box(L, along ? dR * 0.7 : 0.4, dR * 0.7, along ? 0.4 : dR * 0.7,
+        cx2, dY + 1.0 + H * 0.13, cz2, [0.95, 0.94, 0.90], 0); }
+  for(const sv of [-1, 1]){
+    B(0.26, 11, 0.26, LEN / 2 + 5.0, 7.0, sv * WID * 0.30, [0.90, 0.90, 0.88], 0);
+    const [lx, lz] = W2(LEN / 2 + 7.5, sv * WID * 0.42);
+    lamps.push({x: lx, z: lz});
+  }
+  for(let i = 0; i < 8; i++){
+    const a = rnd() * Math.PI * 2, r = Math.max(LEN, WID) * 0.58 + rnd() * 8;
+    addTree(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r, 0.9 + rnd() * 0.45);
+  }
+}
+
 function buildStadium(o, L, seedF){
   const c = objCentre(o), f = footprint(o);
   const W = f.w * CELL - 3, D = f.d * CELL - 3;
@@ -1970,7 +2378,7 @@ function buildStadium(o, L, seedF){
   const rr = Math.min(rx, rz);
   o._capW = W; o._capD = D; o._capY = H * 1.02;
   slab(L, W, D, c.x, 0.05, c.z, [0.56, 0.55, 0.52]);
-  drawPitch(L, c.x, c.z, W * 0.56, D * 0.56, o.sport | 0);
+  drawPitch(L, c.x, c.z, W * 0.56, D * 0.56, o.sport | 0, true);   // the bowl is the fence
   const N = 30;
   const seg = 2 * Math.PI * Math.sqrt((rx * rx + rz * rz) / 2) / N * 1.32;
   for(let i = 0; i < N; i++){
@@ -2090,6 +2498,209 @@ const LAWN2  = [0.290, 0.465, 0.235];
 const WOOD   = [0.600, 0.470, 0.340];
 const RAIL   = [0.300, 0.300, 0.320];
 
+/* ---- floodlights ----------------------------------------------------------
+   City pitches spend a lot of the day in the shadow of the blocks around them,
+   so every sports venue gets proper masts. The lamps and the wash of light on
+   the pitch are driven by whether a game is actually being played there, not by
+   the time of day — a match at two in the afternoon still turns them on. ---- */
+const floods = [];        // one entry per mast head
+const litPitches = [];    // one entry per venue, for the glow on the ground
+const MAST = [0.40, 0.42, 0.44];
+function addFloodlights(L, o, cx, cz, w, d, h, six){
+  const f = footprint(o), small = f.w * f.d < 12;
+  const pts = six ? [[-1,-1],[1,-1],[-1,1],[1,1],[0,-1],[0,1]]
+            : small ? [[-1,-1],[1,1]]                 // a small court needs two, not four
+                  : [[-1,-1],[1,-1],[-1,1],[1,1]];
+  for(const [sx, sz] of pts){
+    const x = cx + sx * (w / 2 - 1.0), z = cz + sz * (d / 2 - 1.0);
+    box(L, 0.62, h, 0.62, x, h / 2, z, MAST, 0);
+    box(L, 1.1, 0.5, 1.1, x, h + 0.25, z, shade(MAST, 0.9), 0);
+    const ry = Math.atan2(cx - x, cz - z);
+    box(L, 2.9, 0.28, 0.5, x, h + 1.5, z, shade(MAST, 1.1), 0, ry);
+    floods.push({x, y: h + 1.5, z, ry, o});
+  }
+  // a couple of ordinary lamps too, so the place isn't pitch dark at night
+  // when nothing is being played
+  lamps.push({x: cx - w / 2 + 1.4, z: cz - d / 2 + 1.4});
+  lamps.push({x: cx + w / 2 - 1.4, z: cz + d / 2 - 1.4});
+  litPitches.push({o, cx, cz, w, d});
+}
+
+/* A run of chain-link: posts, a top rail and a mid rail. Cheap enough to put
+   round every court in the city, and reads as a fence from any useful zoom. */
+const FENCE = [0.50, 0.53, 0.52];
+function fenceRect(L, cx, cz, w, d, h){
+  const hw = w / 2, hd = d / 2;
+  for(const y of [h, h * 0.5]){
+    box(L, w + 0.1, 0.08, 0.08, cx, y, cz - hd, FENCE, 0);
+    box(L, w + 0.1, 0.08, 0.08, cx, y, cz + hd, FENCE, 0);
+    box(L, 0.08, 0.08, d + 0.1, cx - hw, y, cz, FENCE, 0);
+    box(L, 0.08, 0.08, d + 0.1, cx + hw, y, cz, FENCE, 0);
+  }
+  const nx = clamp(Math.round(w / 5), 2, 8), nz = clamp(Math.round(d / 5), 2, 8);
+  for(let i = 0; i <= nx; i++){
+    const x = cx - hw + i * w / nx;
+    box(L, 0.11, h, 0.11, x, h / 2, cz - hd, FENCE, 0);
+    box(L, 0.11, h, 0.11, x, h / 2, cz + hd, FENCE, 0);
+  }
+  for(let i = 1; i < nz; i++){
+    const z = cz - hd + i * d / nz;
+    box(L, 0.11, h, 0.11, cx - hw, h / 2, z, FENCE, 0);
+    box(L, 0.11, h, 0.11, cx + hw, h / 2, z, FENCE, 0);
+  }
+}
+
+/* An outdoor pool: tiled deck, lane ropes, a changing block, loungers, fence. */
+const POOL_W = [0.11, 0.60, 0.84], POOL_DECK = [0.855, 0.845, 0.815];
+/* Diving boards at the deep end of a pool: a springboard always, and a high
+   platform once the water is big enough to be worth jumping into. `along` is
+   the swimming direction — the same one the lane ropes use, so the boards end
+   up at the end of the lanes rather than across them. `fwd` runs back over the
+   water from the deep edge. Shared by the standalone lido and the pool inside a
+   sports park; the park's had none for a while, because the code lived inside
+   the lido's builder rather than in a function either could call. */
+function divingBoards(L, px, pz, pw, pd, along, big){
+  const BOARD = [0.93, 0.93, 0.90], STEEL = [0.52, 0.55, 0.57];
+  const deepX = along ? px + pw / 2 : px, deepZ = along ? pz : pz + pd / 2;
+  const at = (fwd, side) => along ? [deepX - fwd, deepZ + side] : [deepX + side, deepZ - fwd];
+  const off = (along ? pd : pw) * 0.26;
+  const [sbx, sbz] = at(-0.55, -off);
+  box(L, 0.55, 1.05, 0.55, sbx, 0.52, sbz, STEEL, 0);
+  const [spx, spz] = at(1.0, -off);
+  box(L, along ? 3.0 : 0.72, 0.12, along ? 0.72 : 3.0, spx, 1.10, spz, BOARD, 0);
+  const [fx, fz] = at(-0.1, -off);
+  box(L, along ? 0.5 : 0.7, 0.5, along ? 0.7 : 0.5, fx, 1.05, fz, STEEL, 0);
+  if(!big) return;
+  const [tx, tz] = at(-1.15, off);
+  for(const dx of [-0.5, 0.5]) for(const dz of [-0.5, 0.5])
+    box(L, 0.16, 5.0, 0.16, tx + dx, 2.5, tz + dz, STEEL, 0);
+  box(L, 1.7, 0.16, 1.7, tx, 5.08, tz, BOARD, 0);
+  for(let i = 0; i < 8; i++){
+    const [rx, rz] = at(-1.95, off);
+    box(L, 1.0, 0.08, 0.1, rx, 0.7 + i * 0.56, rz, STEEL, 0);
+  }
+  for(const sd of [-1, 1]){
+    const [gx2, gz2] = at(-1.15, off + sd * 0.85);
+    box(L, along ? 1.7 : 0.1, 0.9, along ? 0.1 : 1.7, gx2, 5.6, gz2, STEEL, 0);
+  }
+  const [hpx, hpz] = at(0.9, off);
+  box(L, along ? 2.6 : 0.85, 0.14, along ? 0.85 : 2.6, hpx, 5.08, hpz, BOARD, 0);
+}
+
+function buildPool(o, L){
+  const c = objCentre(o), f = footprint(o);
+  const W = f.w * CELL - 2.0, D = f.d * CELL - 2.0;
+  const along = W >= D;
+  slab(L, W, D, c.x, 0.07, c.z, POOL_DECK);
+  const pw = (along ? W * 0.62 : W * 0.70), pd = (along ? D * 0.70 : D * 0.62);
+  const px = c.x - (along ? W * 0.11 : 0), pz = c.z - (along ? 0 : D * 0.11);
+  /* The coping is a kerb of four rails round the edge, NOT a slab across the
+     whole footprint — a solid box here swallows the water plane inside it and
+     the pool renders as the grey top of that box. */
+  slab(L, pw, pd, px, 0.12, pz, [0.10, 0.30, 0.40]);        // liner under the water
+  slab(poolParts, pw, pd, px, 0.30, pz, POOL_W);
+  o._playX = px; o._playZ = pz; o._playW = pw; o._playD = pd;   // swimmers go in the water
+  const cw = 0.55, cy = 0.45;
+  box(L, pw + cw * 2, cy, cw, px, cy / 2, pz - pd / 2 - cw / 2, shade(POOL_DECK, 0.94), 0);
+  box(L, pw + cw * 2, cy, cw, px, cy / 2, pz + pd / 2 + cw / 2, shade(POOL_DECK, 0.94), 0);
+  box(L, cw, cy, pd, px - pw / 2 - cw / 2, cy / 2, pz, shade(POOL_DECK, 0.94), 0);
+  box(L, cw, cy, pd, px + pw / 2 + cw / 2, cy / 2, pz, shade(POOL_DECK, 0.94), 0);
+  const lanes = clamp(Math.round((along ? pd : pw) / 2.4), 3, 7);
+  for(let i = 1; i < lanes; i++){
+    const t = -0.5 + i / lanes;
+    if(along) slab(L, pw * 0.97, 0.16, px, 0.33, pz + pd * t, [0.93, 0.95, 0.96]);
+    else slab(L, 0.16, pd * 0.97, px + pw * t, 0.33, pz, [0.93, 0.95, 0.96]);
+  }
+  // starting blocks, standing on the kerb at the shallow end
+  for(let i = 0; i < lanes; i++){
+    const t = -0.5 + (i + 0.5) / lanes;
+    const bx = along ? px - pw / 2 - cw / 2 : px + pw * t;
+    const bz = along ? pz + pd * t : pz - pd / 2 - cw / 2;
+    box(L, 0.6, 0.4, 0.6, bx, 0.65, bz, [0.90, 0.90, 0.87], 0);
+  }
+  divingBoards(L, px, pz, pw, pd, along, f.w >= 3 && f.d >= 3);
+  // changing block and loungers
+  const hx = c.x + (along ? W * 0.40 : 0), hz = c.z + (along ? 0 : D * 0.40);
+  box(L, along ? W * 0.16 : W * 0.44, 3.0, along ? D * 0.44 : D * 0.16, hx, 1.5, hz, [0.86, 0.83, 0.76], 0);
+  box(L, (along ? W * 0.16 : W * 0.44) + 0.8, 0.5, (along ? D * 0.44 : D * 0.16) + 0.8, hx, 3.2, hz,
+      [0.55, 0.60, 0.62], 0);
+  for(let i = 0; i < 5; i++){
+    const t = -0.5 + (i + 0.5) / 5;
+    const lx = along ? c.x + W * t * 0.8 : c.x - W * 0.40;
+    const lz = along ? c.z - D * 0.40 : c.z + D * t * 0.8;
+    box(L, 1.7, 0.3, 0.7, lx, 0.28, lz, [0.94, 0.93, 0.88], 0, along ? 0 : Math.PI / 2);
+  }
+  for(let i = 0; i < 3; i++)
+    addTree(c.x + rrange(-W/2 + 1, W/2 - 1), 0.05, c.z + (rnd() < 0.5 ? -1 : 1) * (D/2 - 1), 0.8 + rnd() * 0.3);
+  fenceRect(L, c.x, c.z, W + 0.6, D + 0.6, 1.7);
+  addFloodlights(L, o, c.x, c.z, W, D, 12, false);
+}
+
+/* A playground: swings, a slide, a seesaw, a climbing frame, on soft ground. */
+const SOFT = [0.760, 0.560, 0.360];
+const PLAY = [[0.86,0.32,0.28], [0.25,0.55,0.80], [0.95,0.72,0.20], [0.35,0.68,0.42]];
+function buildPlayground(o, L, seedF){
+  const c = objCentre(o), f = footprint(o);
+  const W = f.w * CELL - 1.8, D = f.d * CELL - 1.8;
+  const hue = i => PLAY[(Math.floor(seedF * 97) + i) % PLAY.length];
+  slab(L, W, D, c.x, 0.07, c.z, LAWN);
+  slab(L, W * 0.86, D * 0.86, c.x, 0.09, c.z, SOFT);
+  const qx = W * 0.26, qz = D * 0.26;
+  // swings: two A-frames, a beam, and seats hanging from it
+  {
+    const sx = c.x - qx, sz = c.z - qz, bw = Math.min(4.6, W * 0.36);
+    for(const s of [-1, 1]){
+      box(L, 0.16, 2.5, 0.16, sx + s * bw / 2, 1.25, sz - 0.55, hue(0), 0);
+      box(L, 0.16, 2.5, 0.16, sx + s * bw / 2, 1.25, sz + 0.55, hue(0), 0);
+    }
+    box(L, bw + 0.4, 0.16, 0.16, sx, 2.5, sz, shade(hue(0), 0.8), 0);
+    for(const s of [-1, 1]){
+      box(L, 0.06, 1.5, 0.06, sx + s * bw * 0.22, 1.75, sz, [0.35,0.36,0.38], 0);
+      box(L, 0.62, 0.10, 0.34, sx + s * bw * 0.22, 1.00, sz, hue(1), 0);
+    }
+  }
+  // slide: a little tower with a ladder and a ramp down
+  {
+    const sx = c.x + qx, sz = c.z - qz;
+    box(L, 1.5, 0.16, 1.5, sx, 1.75, sz, hue(2), 0);
+    for(const [dx, dz] of [[-0.6,-0.6],[0.6,-0.6],[-0.6,0.6],[0.6,0.6]])
+      box(L, 0.14, 1.75, 0.14, sx + dx, 0.88, sz + dz, shade(hue(2), 0.82), 0);
+    for(let i = 0; i < 4; i++)
+      box(L, 1.2, 0.10, 0.14, sx, 0.42 + i * 0.42, sz - 0.75, [0.55,0.45,0.35], 0);
+    const g = new THREE.BoxGeometry(0.9, 0.12, 2.9);
+    g.rotateX(0.52); g.translate(sx, 1.05, sz + 1.55);
+    L.geo.push(attach(g, hue(3), 0));
+    for(const s of [-1, 1]) box(L, 0.10, 0.5, 1.4, sx + s * 0.45, 1.5, sz + 0.9, shade(hue(3), 0.85), 0);
+  }
+  // seesaw
+  {
+    const sx = c.x - qx, sz = c.z + qz;
+    box(L, 0.5, 0.6, 0.5, sx, 0.3, sz, [0.45,0.47,0.48], 0);
+    const g = new THREE.BoxGeometry(0.42, 0.14, 3.6);
+    g.rotateX(0.20); g.translate(sx, 0.72, sz);
+    L.geo.push(attach(g, hue(1), 0));
+    for(const s of [-1, 1]) box(L, 0.34, 0.28, 0.34, sx, 0.72 + s * 0.36, sz + s * 1.6, hue(2), 0);
+  }
+  // climbing frame
+  {
+    const sx = c.x + qx, sz = c.z + qz, r = Math.min(2.0, W * 0.16);
+    for(const dx of [-r, r]) for(const dz of [-r, r])
+      box(L, 0.12, 1.9, 0.12, sx + dx, 0.95, sz + dz, hue(3), 0);
+    for(const y of [0.95, 1.9]){
+      box(L, r * 2 + 0.12, 0.10, 0.10, sx, y, sz - r, shade(hue(3), 0.85), 0);
+      box(L, r * 2 + 0.12, 0.10, 0.10, sx, y, sz + r, shade(hue(3), 0.85), 0);
+      box(L, 0.10, 0.10, r * 2 + 0.12, sx - r, y, sz, shade(hue(3), 0.85), 0);
+      box(L, 0.10, 0.10, r * 2 + 0.12, sx + r, y, sz, shade(hue(3), 0.85), 0);
+    }
+  }
+  // a bench for whoever brought them, and a tree for shade
+  for(let i = 0; i < 2; i++)
+    box(L, 2.0, 0.42, 0.7, c.x + (i ? 1 : -1) * W * 0.30, 0.5, c.z + D * 0.44, WOOD, 0);
+  for(let i = 0; i < 3; i++)
+    addTree(c.x + rrange(-W/2, W/2), 0.05, c.z + (rnd() < 0.5 ? -1 : 1) * (D/2 - 0.6), 0.85 + rnd() * 0.4);
+  lamps.push({x: c.x + W * 0.40, z: c.z - D * 0.40});
+}
+
 function buildGreen(o, L){
   const c = objCentre(o), f = footprint(o);
   const W = f.w * CELL - 1.6, D = f.d * CELL - 1.6;
@@ -2127,12 +2738,7 @@ function buildGreen(o, L){
         addTree(c.x + rrange(-W/2, W/2), 0.05, c.z + (rnd() < 0.5 ? -1 : 1) * (D/2 + 1.5), 0.85 + rnd()*0.4);
       for(let i = 0; i < 2; i++)
         box(L, 3.0, 0.5, 1.0, c.x + rrange(-W/2+3, W/2-3), 0.6, c.z + (rnd()<0.5?-1:1)*(D/2 - 1), WOOD, 0);
-      if(cols * rows > 1){
-        for(let s2 = -1; s2 <= 1; s2 += 2){
-          box(L, 0.7, 12, 0.7, c.x + s2 * (W/2 - 1), 6, c.z, [0.42,0.44,0.46], 0);
-          box(glowParts, 2.6, 0.8, 1.0, c.x + s2 * (W/2 - 1), 12.2, c.z, [1.0,0.97,0.88], 0);
-        }
-      }
+      addFloodlights(L, o, c.x, c.z, W, D, 15, cols * rows > 2);
       break;
     }
     case 'sportspark': {
@@ -2156,17 +2762,24 @@ function buildGreen(o, L){
         const [px, pz] = P(LNG * 0.26, -SHT * 0.26);
         const pw = along ? LNG * 0.30 : SHT * 0.36, pd = along ? SHT * 0.36 : LNG * 0.30;
         slab(L, pw + 3.4, pd + 3.4, px, 0.08, pz, shade(PAVE2, 0.98));
-        box(L, pw + 0.9, 0.5, pd + 0.9, px, 0.3, pz, [0.86, 0.86, 0.83], 0);
-        slab(lakeParts, pw, pd, px, 0.42, pz, [0.20, 0.56, 0.62]);
+        slab(L, pw, pd, px, 0.12, pz, [0.10, 0.30, 0.40]);          // liner
+        slab(poolParts, pw, pd, px, 0.30, pz, POOL_W);
+        const kc = 0.5, ky = 0.46, kerb = [0.86, 0.86, 0.83];       // kerb, not a lid
+        box(L, pw + kc * 2, ky, kc, px, ky / 2, pz - pd / 2 - kc / 2, kerb, 0);
+        box(L, pw + kc * 2, ky, kc, px, ky / 2, pz + pd / 2 + kc / 2, kerb, 0);
+        box(L, kc, ky, pd, px - pw / 2 - kc / 2, ky / 2, pz, kerb, 0);
+        box(L, kc, ky, pd, px + pw / 2 + kc / 2, ky / 2, pz, kerb, 0);
         for(let i = 0; i < 5; i++){
           const t = -0.4 + i * 0.2;
-          if(along) slab(L, pw * 0.96, 0.18, px, 0.44, pz + pd * t, [0.92,0.95,0.96]);
-          else slab(L, 0.18, pd * 0.96, px + pw * t, 0.44, pz, [0.92,0.95,0.96]);
+          if(along) slab(L, pw * 0.96, 0.18, px, 0.33, pz + pd * t, [0.92,0.95,0.96]);
+          else slab(L, 0.18, pd * 0.96, px + pw * t, 0.33, pz, [0.92,0.95,0.96]);
         }
         for(let i = 0; i < 3; i++){
           const [bx2, bz2] = P(LNG * 0.26 + (i - 1) * 3.4, -SHT * 0.26 + (along ? pd/2 + 2.6 : 0));
           box(L, 1.9, 0.4, 0.7, bx2, 0.5, bz2, [0.94,0.93,0.90], 0, along ? 0 : Math.PI/2);
         }
+        divingBoards(L, px, pz, pw, pd, along, Math.min(pw, pd) >= 7);
+        fenceRect(L, px, pz, pw + 3.8, pd + 3.8, 1.7);
       }
       // two hard courts
       for(let i = 0; i < 2; i++){
@@ -2181,23 +2794,22 @@ function buildGreen(o, L){
         box(L, hw + 1.2, 0.6, hd + 1.2, hx, 4.4, hz, [0.52, 0.44, 0.38], 0);
         box(glowParts, hw * 0.8, 1.4, hd * 0.04 + 0.3, hx, 1.9, hz + hd / 2, [1.0, 0.94, 0.80], 0);
       }
-      // floodlights on the corners
-      for(const sx2 of [-1, 1]) for(const sz2 of [-1, 1]){
-        const px = c.x + sx2 * (W / 2 - 2.2), pz = c.z + sz2 * (D / 2 - 2.2);
-        box(L, 0.8, 15, 0.8, px, 7.5, pz, [0.42, 0.44, 0.46], 0);
-        box(glowParts, 3.0, 1.0, 1.2, px, 15.3, pz, [1.0, 0.97, 0.88], 0);
-        lamps.push({x: px, z: pz});
-      }
+      addFloodlights(L, o, c.x, c.z, W, D, 19, true);
       for(let i = 0; i < Math.round(W * D / 340); i++)
         addTree(c.x + rrange(-W/2 + 1, W/2 - 1), 0.04,
                 c.z + (rnd() < 0.5 ? -1 : 1) * (D / 2 - 1 - rnd() * 2), 0.85 + rnd() * 0.5);
       break;
     }
     case 'forest': {
-      const n = Math.min(1100, Math.round(W * D * 0.036));
+      const n = Math.min(3200, Math.round(W * D * forestDens));
+      /* Glades, scaled to the wood. A fixed 7-18 m radius is most of a small
+         forest and all of a tiny one: a 2x2-cell wood is 18 m across, so one
+         clearing could erase it, and a 5x5 one lost half its trees to two. */
       const clearings = [];
-      for(let i = 0; i < 2 + Math.floor(rnd() * 2); i++)
-        clearings.push([c.x + rrange(-W/2, W/2), c.z + rrange(-D/2, D/2), 7 + rnd() * 11]);
+      const SM = Math.min(W, D);
+      for(let i = 0; i < Math.min(3, Math.floor(SM / 22)); i++)
+        clearings.push([c.x + rrange(-W/2, W/2), c.z + rrange(-D/2, D/2),
+                        SM * (0.10 + rnd() * 0.10)]);
       for(let i = 0; i < n; i++){
         const px = c.x + rrange(-W/2 + 1, W/2 - 1), pz = c.z + rrange(-D/2 + 1, D/2 - 1);
         let skip = false;
@@ -2206,8 +2818,8 @@ function buildGreen(o, L){
         const [gx2, gz2] = cellFromWorld(px, pz);
         if(gx2 >= 0 && gz2 >= 0 && gx2 < GRID && gz2 < GRID && occT[oi(gx2, gz2)] !== -1) continue;
         const dark = 0.72 + rnd() * 0.4;
-        addTree(px, 0.02, pz, 0.85 + rnd() * 1.05,
-                [0.16 * dark, (0.30 + rnd() * 0.16) * dark, 0.15 * dark]);
+        addTree(px, 0.02, pz, (0.85 + rnd() * 1.05) * treeFat,
+                [0.16 * dark, (0.30 + rnd() * 0.16) * dark, 0.15 * dark], true);
       }
       for(const [qx, qz, qr] of clearings){
         if(rnd() < 0.5) box(L, 2.4, 0.5, 0.85, qx, 0.55, qz, WOOD, 0, rnd() * 3);
@@ -2456,11 +3068,16 @@ function buildStreets(L){
           if((gx + gz) % 5 === 0) lamps.push({x: x + (sx ? 3.6 : 0), z: z + (sz ? 3.6 : 0)});
         }
       } else {
-        // parkland: a meandering footpath instead of a street
+        /* Parkland: a footpath instead of a street, and it runs dead straight.
+           This used to be nudged sideways by sin(g * 1.7) to make it "meander",
+           but 1.7 radians per cell is most of a half-turn, so successive
+           nine-metre segments land at unrelated offsets and the path comes out
+           as a row of steps rather than a curve. A meander needs a period of
+           many cells, not one; at this scale, straight is what reads as a path. */
         const w = 3.1;
         if(sx && sz) slab(L, w, w, x, 0.05, z, WALKC);
-        else if(sx) slab(L, w, CELL + 0.05, x + Math.sin(gz * 1.7) * 1.1, 0.05, z, WALKC);
-        else slab(L, CELL + 0.05, w, x, 0.05, z + Math.sin(gx * 1.7) * 1.1, WALKC);
+        else if(sx) slab(L, w, CELL + 0.05, x, 0.05, z, WALKC);
+        else slab(L, CELL + 0.05, w, x, 0.05, z, WALKC);
         if((gx * 7 + gz) % 4 === 0)
           addTree(x + rrange(-3.6, 3.6), 0.03, z + rrange(-3.6, 3.6), 0.9 + rnd() * 0.6);
         if((gx + gz) % 3 === 0){                        // park paths stay lit after dark
@@ -2665,6 +3282,7 @@ function removeObject(idx){
 
 /* --- meshes --------------------------------------------------------------- */
 let cityMesh = null, detailMesh = null, trunkMesh = null, canopyMesh = null;
+let bulkTrunkMesh = null, bulkCanopyMesh = null;
 let lampMesh = null, poolMesh = null, pickMesh = null, shopMesh = null, lakeMesh = null, signMesh = null;
 
 function swapMesh(old, list, mat, cast, receive){
@@ -2689,43 +3307,94 @@ const canopyGeo = mergeGeometries([
   new THREE.IcosahedronGeometry(1.15, 0).translate(0.7, 5.0, -0.35),
   new THREE.IcosahedronGeometry(0.95, 0).translate(-0.8, 4.5, 0.5),
 ], false);
+/* The woodland tree: one lump of canopy on an open three-sided trunk, 26
+   triangles against the specimen tree's 80. Nothing in a wood is ever looked at
+   on its own — the trunk needs no end caps, since the ground hides one and the
+   canopy the other — and the saving is what pays for there being enough of
+   them. Cheap enough that the city draws more than twice as many trees as
+   before for the same cost. */
+const bulkTrunkGeo = new THREE.CylinderGeometry(0.21, 0.32, 2.6, 3, 1, true).translate(0, 1.3, 0);
+const bulkCanopyGeo = new THREE.IcosahedronGeometry(1.95, 0).translate(0, 3.7, 0);
 const matTrunk = new THREE.MeshStandardMaterial({color:0x6b4f38, roughness:0.95});
 const matCanopy = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.88, flatShading:true});
 
+/* Drawing trees is the single most expensive thing in the scene, so there is a
+   hard ceiling on them. Spend it per square metre of wood rather than
+   first-come-first-served: take them in the order they were built and the
+   forests laid down early come out dense while everything after the ceiling
+   comes out bare, which is exactly what a patchy city looks like. */
+const TREE_SPECIMEN = 26000, TREE_BULK = 140000;
+const TREE_DENS = 0.115;                  // trees per square metre of proper woodland
+let forestDens = TREE_DENS, treeFat = 1;
+function planTreeBudget(){
+  let area = 0;
+  for(const o of state.objects) if(o.type === 'forest'){
+    const f = footprint(o);
+    area += f.w * CELL * f.d * CELL;
+  }
+  // roughly a third of the nominal trees are lost to clearings and occupied cells
+  forestDens = area > 0 ? Math.min(TREE_DENS, TREE_BULK / (area * 0.68)) : TREE_DENS;
+  /* A city that sprawls far enough has more woodland than can be drawn at full
+     density. Rather than let those woods read as scrub, grow the canopies as
+     the count comes down — cover is what the eye reads as forest, not stems, so
+     half as many trees half again as wide still looks like a closed wood. */
+  treeFat = clamp(Math.sqrt(TREE_DENS / forestDens), 1, 1.75);
+}
+
 function buildTreeMeshes(){
-  if(trunkMesh){ scene.remove(trunkMesh); trunkMesh.dispose(); }
-  if(canopyMesh){ scene.remove(canopyMesh); canopyMesh.dispose(); }
-  const n = Math.min(trees.length, 12000);
-  if(!n){ trunkMesh = canopyMesh = null; return; }
-  trunkMesh = new THREE.InstancedMesh(trunkGeo, matTrunk, n);
-  canopyMesh = new THREE.InstancedMesh(canopyGeo, matCanopy, n);
-  canopyMesh.castShadow = true; trunkMesh.castShadow = true;
-  canopyMesh.receiveShadow = false;
+  for(const x of [trunkMesh, canopyMesh, bulkTrunkMesh, bulkCanopyMesh])
+    if(x){ scene.remove(x); x.dispose(); }
+  trunkMesh = canopyMesh = bulkTrunkMesh = bulkCanopyMesh = null;
+  /* Split into the specimen trees and the woodland, each with its own ceiling.
+     If either overruns, thin it with a stride across the whole list rather than
+     cutting the tail off — a stride takes the same share out of every wood, so
+     they all end up a little thinner instead of some of them ending up empty. */
+  const pick = (want, cap) => {
+    if(!want.length) return [];
+    if(want.length <= cap) return want;
+    const out = [];
+    const step = want.length / cap;
+    for(let i = 0; out.length < cap && i < want.length; i++)
+      if(Math.floor(i / step) === out.length) out.push(want[i]);
+    return out;
+  };
+  const fine = pick(trees.filter(t => !t.b), TREE_SPECIMEN);
+  const wood = pick(trees.filter(t => t.b), TREE_BULK);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
   const col = new THREE.Color();
-  for(let i = 0; i < n; i++){
-    const t = trees[i];
-    p.set(t.x, t.y, t.z);
-    q.setFromAxisAngle(new THREE.Vector3(0,1,0), (i * 2.399) % 6.283);
-    const sc = t.s * 1.15;
-    s.set(sc, sc * t.g * 1.5, sc);
-    m.compose(p, q, s);
-    trunkMesh.setMatrixAt(i, m);
-    canopyMesh.setMatrixAt(i, m);
-    let cr = s2l(t.c[0]), cg = s2l(t.c[1]), cb = s2l(t.c[2]);
-    if(state.focus && !t.f){                       // washed out with the rest of the city
-      const lum = cr * 0.299 + cg * 0.587 + cb * 0.114;
-      const grey = lum * 0.55 + 0.13;
-      cr = lerp(grey, cr, 0.18); cg = lerp(grey, cg, 0.18); cb = lerp(grey, cb, 0.18);
+  const build = (list, tg, cg) => {
+    if(!list.length) return [null, null];
+    const tm = new THREE.InstancedMesh(tg, matTrunk, list.length);
+    const cm = new THREE.InstancedMesh(cg, matCanopy, list.length);
+    cm.castShadow = true; tm.castShadow = true;
+    cm.receiveShadow = false;
+    for(let i = 0; i < list.length; i++){
+      const t = list[i];
+      p.set(t.x, t.y, t.z);
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (i * 2.399) % 6.283);
+      const sc = t.s * 1.15;
+      s.set(sc, sc * t.g * 1.5, sc);
+      m.compose(p, q, s);
+      tm.setMatrixAt(i, m);
+      cm.setMatrixAt(i, m);
+      let cr = s2l(t.c[0]), cg2 = s2l(t.c[1]), cb = s2l(t.c[2]);
+      if(state.focus && !t.f){                       // washed out with the rest of the city
+        const lum = cr * 0.299 + cg2 * 0.587 + cb * 0.114;
+        const grey = lum * 0.55 + 0.13;
+        cr = lerp(grey, cr, 0.18); cg2 = lerp(grey, cg2, 0.18); cb = lerp(grey, cb, 0.18);
+      }
+      col.setRGB(cr, cg2, cb);
+      cm.setColorAt(i, col);
     }
-    col.setRGB(cr, cg, cb);
-    canopyMesh.setColorAt(i, col);
-  }
-  trunkMesh.instanceMatrix.needsUpdate = true;
-  canopyMesh.instanceMatrix.needsUpdate = true;
-  if(canopyMesh.instanceColor) canopyMesh.instanceColor.needsUpdate = true;
-  trunkMesh.frustumCulled = false; canopyMesh.frustumCulled = false;
-  scene.add(trunkMesh, canopyMesh);
+    tm.instanceMatrix.needsUpdate = true;
+    cm.instanceMatrix.needsUpdate = true;
+    if(cm.instanceColor) cm.instanceColor.needsUpdate = true;
+    tm.frustumCulled = false; cm.frustumCulled = false;
+    scene.add(tm, cm);
+    return [tm, cm];
+  };
+  [trunkMesh, canopyMesh] = build(fine, trunkGeo, canopyGeo);
+  [bulkTrunkMesh, bulkCanopyMesh] = build(wood, bulkTrunkGeo, bulkCanopyGeo);
 }
 
 const lampBulbGeo = new THREE.SphereGeometry(0.42, 7, 5);
@@ -2753,6 +3422,100 @@ function buildLampMeshes(){
   poolMesh.instanceMatrix.needsUpdate = true;
   lampMesh.frustumCulled = false; poolMesh.frustumCulled = false;
   scene.add(lampMesh, poolMesh);
+}
+
+/* Floodlight heads and the pool of light they throw. Both are instanced and
+   switched per venue through the instance colour, so a game anywhere in the
+   city can turn its own lights on without touching anyone else's. */
+const floodHeadGeo = mergeGeometries([
+  new THREE.BoxGeometry(0.78, 0.5, 0.28).translate(-0.95, 0, 0.2),
+  new THREE.BoxGeometry(0.78, 0.5, 0.28).translate(0, 0, 0.2),
+  new THREE.BoxGeometry(0.78, 0.5, 0.28).translate(0.95, 0, 0.2),
+], false);
+const matFlood = new THREE.MeshBasicMaterial({color:0xffffff});
+const litGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const matLit = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.85,
+  blending:THREE.AdditiveBlending, depthWrite:false});
+let floodMesh = null, litMesh = null;
+function buildFloodMeshes(){
+  for(const m of [floodMesh, litMesh]) if(m){ scene.remove(m); m.dispose(); }
+  floodMesh = litMesh = null;
+  if(!floods.length) return;
+  floodMesh = new THREE.InstancedMesh(floodHeadGeo, matFlood, floods.length);
+  litMesh = new THREE.InstancedMesh(litGeo, matLit, litPitches.length || 1);
+  litMesh.renderOrder = 3;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3();
+  const s = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+  floods.forEach((f, i) => {
+    q.setFromAxisAngle(up, f.ry);
+    p.set(f.x, f.y, f.z);
+    m.compose(p, q, s);
+    floodMesh.setMatrixAt(i, m);
+  });
+  litPitches.forEach((v, i) => {
+    m.makeScale(v.w * 1.02, 1, v.d * 1.02);
+    m.setPosition(v.cx, 0.20, v.cz);
+    litMesh.setMatrixAt(i, m);
+  });
+  for(const x of [floodMesh, litMesh]){ x.frustumCulled = false; scene.add(x); }
+  updateFloods(0);
+}
+/* Warm and blazing while a game is on, dark metal otherwise. The wash on the
+   ground leans harder as the surroundings darken, so a pitch in the shade of a
+   tower at midday still reads as lit without being blown out. */
+const _fc = new THREE.Color();
+function updateFloods(night){
+  if(!floodMesh) return;
+  const on = o => !!(o._game && o._game.ends !== null);
+  floods.forEach((f, i) => {
+    const lit = on(f.o);
+    _fc.setRGB(lit ? 1.0 : 0.13, lit ? 0.96 : 0.14, lit ? 0.82 : 0.15);
+    floodMesh.setColorAt(i, _fc);
+  });
+  if(floodMesh.instanceColor) floodMesh.instanceColor.needsUpdate = true;
+  const k = 0.10 + 0.30 * night;
+  litPitches.forEach((v, i) => {
+    const lit = on(v.o);
+    _fc.setRGB(lit ? k : 0, lit ? k * 0.94 : 0, lit ? k * 0.72 : 0);
+    litMesh.setColorAt(i, _fc);
+  });
+  if(litMesh.instanceColor) litMesh.instanceColor.needsUpdate = true;
+}
+
+/* Washing the rest of the city out isn't enough on its own — in a dense city a
+   handful of highlighted shops are still lost among the towers. So each one
+   also gets a column of light with a marker floating above it, drawn *through*
+   everything else so you can spot them from any angle even when they're hidden
+   behind a block. */
+const beamGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+const capGeo = new THREE.OctahedronGeometry(1, 0);
+const matBeam = new THREE.MeshBasicMaterial({color:0x74dcc6, transparent:true, opacity:0.34,
+  depthTest:false, depthWrite:false, blending:THREE.AdditiveBlending});
+const matCap = new THREE.MeshBasicMaterial({color:0xa8f4e4, transparent:true, opacity:0.92,
+  depthTest:false, depthWrite:false});
+let beamMesh = null, capMesh = null;
+function buildFocusMarks(){
+  for(const m of [beamMesh, capMesh]) if(m){ scene.remove(m); m.dispose(); }
+  beamMesh = capMesh = null;
+  if(!state.focus) return;
+  const list = state.objects.filter(o => state.focus.types.has(o.type));
+  if(!list.length) return;
+  const bw = clamp(46 / Math.sqrt(list.length), 1.0, 4.0);   // thinner when there are many
+  beamMesh = new THREE.InstancedMesh(beamGeo, matBeam, list.length);
+  capMesh = new THREE.InstancedMesh(capGeo, matCap, list.length);
+  beamMesh.renderOrder = 996; capMesh.renderOrder = 997;
+  const m = new THREE.Matrix4();
+  list.forEach((o, i) => {
+    const c = objCentre(o), h = objHeight(o) + (o._lift || 0);
+    const top = h + 26 + bw * 3;
+    m.makeScale(bw, top, bw);
+    m.setPosition(c.x, 0, c.z);
+    beamMesh.setMatrixAt(i, m);
+    m.makeScale(bw * 1.6, bw * 2.4, bw * 1.6);
+    m.setPosition(c.x, top + bw * 2.2, c.z);
+    capMesh.setMatrixAt(i, m);
+  });
+  for(const x of [beamMesh, capMesh]){ x.frustumCulled = false; scene.add(x); }
 }
 
 const METRO_COLS = [[0.24,0.60,1.0],[1.0,0.44,0.34],[0.32,0.86,0.56],[1.0,0.80,0.28],[0.72,0.50,1.0]];
@@ -2842,6 +3605,11 @@ function setMetroView(on){
   syncViewMaterials();
   if(hadFocus) queueRebuild();
   if(agentMesh) agentMesh.visible = !state.metro;
+  if(bikeMesh) bikeMesh.visible = !state.metro;
+  if(floodMesh) floodMesh.visible = !state.metro;
+  if(beamMesh) beamMesh.visible = !state.metro;
+  if(capMesh) capMesh.visible = !state.metro;
+  if(litMesh) litMesh.visible = !state.metro;
   if(tramMesh) tramMesh.visible = true;        // the trams belong to the transit view
   if(poolMesh) poolMesh.visible = !state.metro;
   if(signMesh) signMesh.visible = !state.metro;
@@ -2948,10 +3716,13 @@ const PLURALS = {
   library:['Library','Libraries'], factory:['Factory','Factories'],
   mall:['Shopping mall','Shopping malls'], shopping:['Shop','Shops'],
   sports:['Sports field','Sports fields'], sportspark:['Sports park','Sports parks'],
+  pool:['Swimming pool','Swimming pools'], playground:['Playground','Playgrounds'],
   prom:['Promenade','Promenades'], subway:['Metro stop','Metro stops'],
   tramstop:['Tram stop','Tram stops'], bike:['Bike path','Bike paths'],
   walk:['Walking path','Walking paths'], tram:['Tram track','Tram track'],
   church:['Cathedral','Cathedrals'], cathedral:['Cathedral','Cathedrals'],
+  sportsmega:['Sports megatower','Sports megatowers'], farm:['Vertical farm','Vertical farms'],
+  cityhall:['City hall','City halls'],
 };
 const pl = (n, a, b) => n === 1 ? a : b;
 function typeLabel(k, n){
@@ -3031,9 +3802,9 @@ function normalizeLayers(){
   if(changed) reindexOcc();
 }
 function rebuildCity(){
-  trees = []; lamps.length = 0;
+  trees = []; lamps.length = 0; floods.length = 0; litPitches.length = 0;
   const SG = newSigns();
-  glowParts = newBatch(2048); lakeParts = newBatch(256);
+  glowParts = newBatch(2048); lakeParts = newBatch(256); poolParts = newBatch(256);
   const LC = newBatch(16384), LD = newBatch(16384);
   normalizeLayers();
   pruneLines();
@@ -3050,6 +3821,7 @@ function rebuildCity(){
     for(let i = m.l; i < lamps.length; i++) lamps[i].y = (lamps[i].y || 0) + dy;
   };
   buildGraph();
+  planTreeBudget();
   rng = mulberry32(state.seed * 7919 + 13);
   curFocus = 1;                       // streets and track stay lit under a focus
   buildStreets(LD);
@@ -3061,9 +3833,14 @@ function rebuildCity(){
     const sf = (o.seed % 997) / 997;
     const m = mark();
     if(o.type === 'stadium') buildStadium(o, LC, sf);
+    else if(o.type === 'sportsmega') buildSportsMega(o, LC, sf);
+    else if(o.type === 'farm') buildFarm(o, LC, sf);
+    else if(o.type === 'cityhall') buildCityHall(o, LC, sf);
     else if(o.type === 'mall') buildMall(o, LC, sf);
     else if(o.type === 'factory') buildFactory(o, LC, sf);
     else if(T.kind === 'building') buildTower(o, LC, sf);
+    else if(o.type === 'pool') buildPool(o, LD);
+    else if(o.type === 'playground') buildPlayground(o, LD, sf);
     else if(T.kind === 'green') buildGreen(o, LD);
     else if(T.kind === 'transit') buildTransit(o, LD);
     else if(o.type === 'spire') buildSpire(o, LC, sf);
@@ -3089,8 +3866,11 @@ function rebuildCity(){
   detailMesh = swapMesh(detailMesh, LD, matDetail, false, true);
   shopMesh = swapMesh(shopMesh, glowParts, matShop, false, false);
   lakeMesh = swapMesh(lakeMesh, lakeParts, water.material, false, false);
+  poolWaterMesh = swapMesh(poolWaterMesh, poolParts, matPoolWater, false, true);
   buildTreeMeshes();
   buildLampMeshes();
+  buildFloodMeshes();
+  buildFocusMarks();
   buildPickMesh();
   computeStats();
   computeHomeView();
@@ -3209,13 +3989,11 @@ const MODE_SPEED = {walk:   {walk:1, park:1.60, path:1.85, bike:1.45, tram:0.45,
                     /* laying track: shortest street route, no preferences */
                     rail:   {walk:1, park:1.00, path:1.00, bike:1.00, tram:1.00, subway:0.02}};
 const SEG_VIS_SPEED = {walk:1.0, park:1.0, path:1.0, bike:2.0, tram:3.6, subway:7.0};
-/* How fast an agent *looks* like it's moving. Tram passengers ride inside a
-   vehicle now, so anyone on their feet is walking, whatever is under them.
-   Subway riders still vanish into the tunnel and reappear at the far station. */
+/* How fast an agent *looks* like it's moving. Pace is a property of the person
+   now — a cyclist carries their own speed — so this only has to handle the
+   subway, where riders vanish into the tunnel and reappear at the far station. */
 function visSpeed(mode, kind){
-  if(kind === 'subway') return SEG_VIS_SPEED.subway;
-  if(mode === 'bike') return SEG_VIS_SPEED.bike;
-  return SEG_VIS_SPEED.walk;
+  return kind === 'subway' ? SEG_VIS_SPEED.subway : 1;
 }
 
 function nodeIdx(ix, iz){ return ix * NX + iz; }
@@ -3516,6 +4294,44 @@ const agentGeo = mergeGeometries([
   new THREE.BoxGeometry(0.46, 0.62, 0.34).translate(0, 0.33, 0),
 ], false);
 const matAgent = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85, flatShading:true});
+
+/* Cyclists get their own mesh: a rider leaning over a frame, wheels and bars.
+   Built facing +z, because that's what a heading of zero means. The rider is
+   left white so the instance colour tints their clothes; the bike is baked dark
+   so it stays a bike whatever colour its owner is wearing. */
+const bikeGeo = (() => {
+  const dark = [0.20, 0.21, 0.23], tyre = [0.13, 0.13, 0.14];
+  const paint = (g, c) => {
+    const n = g.attributes.position.count, col = new Float32Array(n * 3);
+    for(let i = 0; i < n; i++){ col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2]; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.deleteAttribute('uv');
+    return g;
+  };
+  const parts = [
+    paint(new THREE.CylinderGeometry(0.34, 0.34, 0.08, 9).rotateZ(Math.PI/2).translate(0, 0.34, 0.54), tyre),
+    paint(new THREE.CylinderGeometry(0.34, 0.34, 0.08, 9).rotateZ(Math.PI/2).translate(0, 0.34, -0.54), tyre),
+    // step-through frame with a tall head tube and swept-back bars — a town bike
+    paint(new THREE.BoxGeometry(0.07, 0.07, 0.98).rotateX(0.20).translate(0, 0.46, 0.02), dark),
+    paint(new THREE.BoxGeometry(0.07, 0.46, 0.07).translate(0, 0.54, -0.42), dark),      // seat tube
+    paint(new THREE.BoxGeometry(0.07, 0.68, 0.07).translate(0, 0.62, 0.46), dark),       // head tube
+    paint(new THREE.BoxGeometry(0.46, 0.06, 0.06).translate(0, 0.98, 0.42), dark),       // bars
+    paint(new THREE.BoxGeometry(0.09, 0.06, 0.22).translate(-0.22, 0.98, 0.31), dark),   // swept grips
+    paint(new THREE.BoxGeometry(0.09, 0.06, 0.22).translate(0.22, 0.98, 0.31), dark),
+    paint(new THREE.BoxGeometry(0.26, 0.07, 0.17).translate(0, 0.80, -0.42), dark),      // saddle
+    /* The rider sits up: hips square on the saddle, back close to vertical,
+       head over the shoulders rather than out over the front wheel, arms
+       reaching gently forward and down to the bars. */
+    paint(new THREE.BoxGeometry(0.40, 0.34, 0.30).translate(0, 0.94, -0.36), [1,1,1]),
+    paint(new THREE.CylinderGeometry(0.26, 0.22, 0.66, 6).rotateX(-0.13).translate(0, 1.34, -0.31), [1,1,1]),
+    paint(new THREE.SphereGeometry(0.24, 6, 5).translate(0, 1.76, -0.27), [1,1,1]),
+    paint(new THREE.BoxGeometry(0.38, 0.10, 0.66).rotateX(-0.38).translate(0, 1.28, 0.02), [1,1,1]),
+  ];
+  return mergeGeometries(parts, false);
+})();
+const matBike = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8, flatShading:true,
+  vertexColors:true});
+let bikeMesh = null;
 /* Figures read better a little under life-size at city zoom: 1.0× on the slider
    draws the mesh at PPL_BASE, and the slider scales up or down from there. */
 const PPL_BASE = 0.4;
@@ -3525,12 +4341,13 @@ const CLOTHES = [0xef6f5a, 0x4fa3d1, 0xf0c04a, 0x7ec06a, 0xe07fb0, 0x8a7ee0, 0xf
                  0x50c6b0, 0xe8e0d0, 0x6d7f96, 0xd4553f, 0x3f8f77];
 
 let agentMesh = null;
+let walkerCount = 0, riderCount = 0;
 const agents = [];
 let homes = [], works = [], leisures = [], fields = [];
 let outsideCount = 0;
 
 function anchorsFor(o){
-  if(isSportSite(o)){ o._cap = (o.type === 'sportspark' ? 14 : 5) + (o.seed % 6); o._vis = 0; }
+  if(!isSportSite(o)) o._game = null;    // a venue that stopped being one drops its game
   const c = objCentre(o);
   const n = nearestNode(c.x, c.z);
   o._cx = c.x; o._cz = c.z; o._w = c.w * CELL; o._d = c.d * CELL;
@@ -3539,6 +4356,137 @@ function anchorsFor(o){
   const dx = G.x[n] - c.x, dz = G.z[n] - c.z, L = Math.hypot(dx, dz) || 1;
   o._ex = c.x + dx / L * (c.w * CELL / 2 + 2.2);
   o._ez = c.z + dz / L * (c.d * CELL / 2 + 2.2);
+}
+
+/* ---- games ----------------------------------------------------------------
+   Sports venues don't just accumulate visitors — they host games. A game runs
+   for twenty minutes to an hour, has room for a fixed number of players and a
+   crowd to watch them, and everyone leaves together when it finishes. How many
+   venues have a game on at once follows the clock (busy morning and evening,
+   almost nothing at night) and how many people there are per venue. --------- */
+function gameDemand(h){
+  if(h < 6.0) return 0.03;
+  if(h < 7.2) return lerp(0.03, 0.85, (h - 6.0) / 1.2);
+  if(h < 9.6) return 0.90;                       // morning
+  if(h < 11.5) return 0.45;
+  if(h < 14.0) return 0.55;
+  if(h < 16.4) return 0.45;
+  if(h < 17.6) return lerp(0.45, 1.0, (h - 16.4) / 1.2);
+  if(h < 20.6) return 1.0;                       // evening
+  if(h < 22.0) return lerp(1.0, 0.12, (h - 20.6) / 1.4);
+  return 0.05;
+}
+/* How many on the pitch and how many round the edge, by what is being played. */
+function gameSizes(o){
+  const f = footprint(o), area = f.w * f.d;
+  if(o.type === 'sportsmega') return {p: 14 * clamp(Math.round(storiesOf(o) / 4), 2, 9), w: 60};
+  if(o.type === 'pool') return {p: 10, w: 40};
+  if(o.type === 'sportspark') return {p: 30, w: 25};
+  const sport = o.sport | 0;
+  if(sport === 1) return {p: 4 * clamp(Math.round(area / 6), 1, 8), w: 10};   // tennis, per court
+  if(sport === 2) return {p: 10, w: 30};                                     // basketball
+  if(sport === 3) return {p: 30, w: 10};                                     // athletics
+  return {p: area >= 16 ? 15 : 10, w: area >= 16 ? 20 : 10};                 // soccer
+}
+/* A game is scheduled, then waits for people to turn up; its clock starts when
+   the first of them arrives. Starting the clock on the whistle instead means
+   that at high speed, where a walk across town takes many simulated hours, the
+   game is always over before anybody gets there and the pitches stay empty. */
+function gameOver(g, simNow){
+  if(g.ends === null) return simNow > g.expires;      // still waiting for anyone at all
+  if(g.ends - simNow > 8) return true;                // the clock was scrubbed backwards
+  return simNow >= g.ends;
+}
+/* Somebody has just walked on. Keep the game going while people are still
+   turning up — otherwise, at fast clock speeds, the first arrival starts a
+   twenty-minute game that is over before the rest of the team has crossed the
+   street, and every pitch stays empty. */
+function joinArrival(g, simNow){
+  g.arrived = (g.arrived || 0) + 1;
+  g.here = (g.here || 0) + 1;
+  if(g.ends === null){ g.ends = simNow + g.dur; g.hardEnd = simNow + g.dur * 3.5; }
+  else if(g.arrived < g.maxP + g.maxW) g.ends = Math.min(simNow + g.dur, g.hardEnd);
+}
+function updateGames(simNow, hour){
+  if(!fields.length) return;
+  let live = 0;
+  for(const o of fields){
+    if(o._game && gameOver(o._game, simNow)) o._game = null;
+    if(o._game) live++;
+  }
+  // more people per venue means more of them are in use at any one time
+  const perVenue = state.population / Math.max(1, fields.length);
+  const util = clamp(perVenue / 11000, 0.30, 1);
+  let want = Math.round(fields.length * gameDemand(hour) * util);
+  want = Math.min(want, Math.floor(agents.length * 0.30 / 26));   // don't commit the whole city
+  for(let guard = 0; live < want && guard < 40; guard++){
+    const o = fields[Math.floor(rnd() * fields.length)];
+    if(o._game || o._node < 0) continue;
+    const s = gameSizes(o);
+    o._game = {ends: null, hardEnd: 0, dur: 0.33 + rnd() * 0.67, expires: simNow + 4,
+               arrived: 0, players: 0, watchers: 0, maxP: s.p, maxW: s.w};
+    live++;
+  }
+}
+function leaveGame(a){
+  const g = a.sportField && a.sportField._game;
+  if(g){
+    if(a.gameRole === 'play') g.players = Math.max(0, g.players - 1);
+    else g.watchers = Math.max(0, g.watchers - 1);
+    if(a.atGame) g.here = Math.max(0, (g.here || 1) - 1);
+  }
+  a.sportField = null; a.gameRole = null; a.atGame = false;
+}
+let gameBoost = 1;
+const GAME_RANGE = 520;          // metres — a game you can walk to and be seen at
+/* How far to recruit from. At a fast clock people cover far less *simulated*
+   ground per minute, so a radius that is a short stroll at 1x is an epic trek
+   at 600x. Shrink it as the clock speeds up and the crowd stays local. */
+const gameRange = () => GAME_RANGE * clamp(8 / Math.max(1, gameBoost), 0.34, 1);
+function joinGame(a, simNow){
+  const spots = a.sportSpots;
+  if(!spots) return false;
+  for(const f of spots){
+    const g = f && f._game;
+    if(!g || (g.ends !== null && g.ends - simNow < 0.15)) continue;   // nearly over
+    // Commit only if we can get there promptly. Without this, a venue fills its
+    // roster with people from across the city and reads as "30 attending" while
+    // the pitch stands empty for the whole game.
+    if(Math.hypot(f._cx - a.x, f._cz - a.z) > gameRange()) continue;
+    // And only so many at a time may be walking to any one venue, so the roster
+    // fills roughly as fast as people actually turn up and the count you read
+    // off a venue is close to the number of figures standing on it.
+    const enRoute = clamp(Math.round((g.maxP + g.maxW) * 0.35), 6, 18);
+    if(g.players + g.watchers - (g.here || 0) >= enRoute) continue;
+    if(g.players < g.maxP) { g.players++; a.gameRole = 'play'; }
+    else if(g.watchers < g.maxW) { g.watchers++; a.gameRole = 'watch'; }
+    else continue;
+    a.sportField = f;
+    return true;
+  }
+  return false;
+}
+/* Somewhere to sit on your own roof: inside the parapet, out of the middle
+   where the lift housing and whatever crown the style added are sitting. */
+function roofSpot(o){
+  const w = o._roofW || o._w * 0.5, d = o._roofD || o._d * 0.5;
+  const t = rnd() * Math.PI * 2, k = 0.52 + rnd() * 0.30;
+  return [o._cx + Math.cos(t) * w * 0.5 * k, o._cz + Math.sin(t) * d * 0.5 * k];
+}
+
+/* Players work the playing surface; the crowd rings the edge of the plot. A
+   venue can declare where its playing surface actually is — a pool's water is
+   off to one side of its plot, and swimmers belong in it, not on the deck. */
+function millSpot(a, o){
+  if(a.gameRole === 'watch'){
+    const t = rnd() * Math.PI * 2, k = 0.90 + rnd() * 0.10;
+    return [o._cx + Math.cos(t) * o._w * 0.5 * k, o._cz + Math.sin(t) * o._d * 0.5 * k];
+  }
+  if(a.gameRole === 'play' && o._playW)
+    return [o._playX + (rnd() - 0.5) * o._playW * 0.86,
+            o._playZ + (rnd() - 0.5) * o._playD * 0.86];
+  const s = a.gameRole === 'play' ? 0.54 : 0.82;
+  return [o._cx + (rnd() - 0.5) * o._w * s, o._cz + (rnd() - 0.5) * o._d * s];
 }
 
 function weightedPicker(list, weights){
@@ -3570,8 +4518,8 @@ function initAgent(a, pickHome, pickWork){
     }
     a.leis = best;
   }
-  a.sporty = rnd() < 0.5;
-  a.sportAt = 0; a.sportField = null; a.sportUntil = 0; a.sportDay = -1; a.sportSpot = null;
+  a.sportAt = 0; a.sportField = null; a.sportUntil = 0; a.sportDay = -1;
+  a.sportSpots = null; a.gameRole = null; a.sportTry = 0; a.atGame = false;
   a.tWork = 6.2 + rnd() * 2.5;
   a.tLunch = 11.9 + rnd() * 1.0;
   a.lunchLen = 0.7 + rnd() * 0.7;
@@ -3583,9 +4531,23 @@ function initAgent(a, pickHome, pickWork){
   a.tEve = a.tHome + 0.4 + rnd() * 1.4;
   a.tEveEnd = rnd() < 0.07 ? 22.2 + rnd() * 1.3 : 19.2 + rnd() * 1.6;
   a.morningOut = rnd() < 0.5;
-  a.sportAt = a.noJob ? 9.5 + rnd() * 6.0 : 17.0 + rnd() * 2.2;
+  // most evenings on the roof, some mornings with a coffee
+  a.roofer = rnd() < 0.55;
+  a.roofAt = rnd() < 0.28 ? 7.0 + rnd() * 2.0 : 17.4 + rnd() * 4.2;
+  a.roofDay = -1; a.roofUntil = 0; a.onRoof = false;
+  a.sportAt = a.noJob ? (rnd() < 0.5 ? 6.8 + rnd() * 2.6 : 10.5 + rnd() * 6.0)
+                      : (rnd() < 0.34 ? 6.4 + rnd() * 1.4 : 16.9 + rnd() * 3.0);
   a.off = (rnd() - 0.5) * 4.6;
-  a.spd = 0.82 + rnd() * 0.42;
+  /* Some people cycle everywhere. They ride door to door, whatever the trip —
+     they don't park the bike and get on a tram. Everyone else walks the short
+     ones and takes transit for the long ones.
+     Two rolls of the dice rather than one gives a bell-ish spread, so most
+     people move at about the average and a few are notably brisk or dawdling. */
+  a.cyclist = rnd() < 0.28;
+  // decided here, after we know: a cyclist would ride the bike onto the pitch
+  a.sporty = !a.cyclist && rnd() < 0.62;
+  a.spd = a.cyclist ? 3.1 + (rnd() + rnd()) * 0.6      // ~3.5x a walker
+                    : 0.72 + (rnd() + rnd()) * 0.34;
   a.state = 'in';
   a.at = a.home;
   a.dest = a.home;
@@ -3608,9 +4570,9 @@ function refreshAgents(){
   fields = state.objects.filter(o => isSportSite(o) && o._node >= 0);
   const alive = new Set(state.objects);
 
-  const dk = (DENSITY[clamp(state.density | 0, 0, DENSITY.length - 1)] || DENSITY[1]).k;
+  const D = DENSITY[clamp(state.density | 0, 0, DENSITY.length - 1)] || DENSITY[1];
   const want = state.population > 0 && homes.length
-    ? clamp(Math.round(state.population / 62 * dk), 12, MAX_AGENTS) : 0;
+    ? clamp(Math.round(state.population / 62 * D.k), 12, Math.round(MAX_AGENTS * D.cap)) : 0;
 
   const pickHome = weightedPicker(homes, homes.map(o => capacityOf(o).res));
   const pickWork = weightedPicker(works, works.map(o => capacityOf(o).jobs));
@@ -3622,19 +4584,27 @@ function refreshAgents(){
     initAgent(a, pickHome, pickWork);
     agents.push(a);
   }
-  const nearestField = ref => {
+  /* A handful of venues within reach, so a full pitch isn't the end of it.
+     Taking simply the four closest quietly makes rare venues invisible: a city
+     with two sports megatowers among four hundred kickabout pitches will never
+     have one in anybody's nearest four, so nobody ever goes and they stand
+     empty for ever. So also carry the nearest of every *kind* of venue, and
+     keep the whole list in distance order. `gameRange()` still stops anyone
+     trekking across the city for it. */
+  const nearestFields = ref => {
     if(!fields.length || !ref) return null;
-    let best = null, bd = Infinity;
-    for(const f of fields){
-      const dd = (f._cx - ref._cx) ** 2 + (f._cz - ref._cz) ** 2;
-      if(dd < bd){ bd = dd; best = f; }
-    }
-    return best;
+    const scored = fields.map(f => [f, (f._cx - ref._cx) ** 2 + (f._cz - ref._cz) ** 2]);
+    scored.sort((a, b) => a[1] - b[1]);
+    const out = scored.slice(0, 4);
+    const seen = new Set(out.map(x => x[0].type));
+    for(const x of scored) if(!seen.has(x[0].type)){ seen.add(x[0].type); out.push(x); }
+    out.sort((a, b) => a[1] - b[1]);
+    return out.map(x => x[0]);
   };
   for(const a of agents){
-    if(a.sportField && !alive.has(a.sportField)){ a.sportField = null; a.sportUntil = 0; }
-    if(a.sportField) a.sportField._vis = (a.sportField._vis || 0) + 1;
-    if(!a.sportSpot || !alive.has(a.sportSpot)) a.sportSpot = nearestField(a.home || a.work);
+    if(a.sportField && !alive.has(a.sportField)){ a.sportField = null; a.gameRole = null; a.sportUntil = 0; }
+    if(!a.sportSpots || a.sportSpots.some(f => !alive.has(f)))
+      a.sportSpots = nearestFields(a.home || a.work);
     let bad = false;
     if(!a.home || !alive.has(a.home)) { a.home = pickHome(); bad = true; }
     if(a.work && !alive.has(a.work)) { a.work = works.length ? pickWork() : null; a.noJob = !a.work; bad = true; }
@@ -3645,20 +4615,62 @@ function refreshAgents(){
       if(a.home){ a.x = a.home._ex; a.z = a.home._ez; }
     }
   }
-  if(!agentMesh || agentMesh.count < agents.length){
-    if(agentMesh){ scene.remove(agentMesh); agentMesh.dispose(); }
+  /* Walkers and cyclists are drawn from two different meshes, so each agent
+     keeps a fixed slot in whichever one it belongs to. Fixed slots mean the
+     instance colours can be set once here rather than every frame. */
+  for(const f of fields) if(f._game){ f._game.players = 0; f._game.watchers = 0; f._game.here = 0; }
+  for(const a of agents){
+    const g = a.sportField && a.sportField._game;
+    if(!g){ if(a.sportField){ a.sportField = null; a.gameRole = null; a.atGame = false; } continue; }
+    if(a.gameRole === 'play') g.players++; else g.watchers++;
+    if(a.atGame) g.here++;
+  }
+  if(!agentMesh){
     agentMesh = new THREE.InstancedMesh(agentGeo, matAgent, Math.max(1, MAX_AGENTS));
-    agentMesh.frustumCulled = false;
-    agentMesh.castShadow = false;
-    agentMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    scene.add(agentMesh);
+    bikeMesh = new THREE.InstancedMesh(bikeGeo, matBike, Math.max(1, MAX_AGENTS));
+    for(const m of [agentMesh, bikeMesh]){
+      m.frustumCulled = false;
+      m.castShadow = false;
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      scene.add(m);
+    }
   }
-  if(agentMesh){
-    const c = new THREE.Color();
-    for(let i = 0; i < agents.length; i++){ c.set(agents[i].color); agentMesh.setColorAt(i, c); }
-    if(agentMesh.instanceColor) agentMesh.instanceColor.needsUpdate = true;
+  walkerCount = 0; riderCount = 0;
+  const c = new THREE.Color();
+  for(const a of agents){
+    a.slot = a.cyclist ? riderCount++ : walkerCount++;
+    c.set(a.color);
+    (a.cyclist ? bikeMesh : agentMesh).setColorAt(a.slot, c);
   }
+  if(agentMesh.instanceColor) agentMesh.instanceColor.needsUpdate = true;
+  if(bikeMesh.instanceColor) bikeMesh.instanceColor.needsUpdate = true;
+  syncAgentMeshes();          // slots just moved; don't wait for the next frame
   buildTramVehicles();
+}
+
+/* Put every agent where it currently stands, without advancing anything. Needed
+   after the crowd is re-seeded, because slots get reassigned and the paused
+   game would otherwise keep drawing the previous occupants' positions. */
+function syncAgentMeshes(){
+  if(!agentMesh || !bikeMesh) return;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+  const pv = new THREE.Vector3(), sv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const ascale = agentScale();
+  for(const a of agents){
+    if(a.hidden || a.state === 'in'){
+      m.makeScale(0.0001, 0.0001, 0.0001);
+      m.setPosition(0, -500, 0);
+    } else {
+      pv.set(a.x, terrainGuessY(a.x, a.z), a.z);
+      q.setFromAxisAngle(up, Math.atan2(a.hx || 0, a.hz || 1));
+      sv.set(ascale, ascale, ascale);
+      m.compose(pv, q, sv);
+    }
+    (a.cyclist ? bikeMesh : agentMesh).setMatrixAt(a.slot, m);
+  }
+  agentMesh.count = walkerCount; bikeMesh.count = riderCount;
+  agentMesh.instanceMatrix.needsUpdate = true;
+  bikeMesh.instanceMatrix.needsUpdate = true;
 }
 
 function targetFor(a, place){
@@ -3767,6 +4779,7 @@ function beginLeg(a, i){
 
 function startTrip(a, dest, purpose){
   leaveTram(a);
+  a.onRoof = false; a.y = 0;
   a.dest = dest;
   a.purpose = purpose || 'home';
   if(!dest){ a.state = 'in'; a.hidden = true; return; }
@@ -3774,7 +4787,7 @@ function startTrip(a, dest, purpose){
   const sz = a.state === 'in' && a.at ? a.at._ez : a.z;
   const d = Math.hypot(dest._ex - sx, dest._ez - sz);
   if(d < 6){ a.state = 'in'; a.at = dest; a.hidden = true; return; }
-  const mode = d < 95 ? 'walk' : d < 280 ? 'bike' : 'transit';
+  const mode = a.cyclist ? 'bike' : (d < 260 ? 'walk' : 'transit');
   const fromN = a.state === 'in' && a.at ? a.at._node : nearestNode(sx, sz);
   const toN = dest._node;
   const px = [sx], pz = [sz], pk = [];
@@ -3828,6 +4841,8 @@ function laneOffset(a, kind){
 function updateAgents(dt, hour, boost){
   outsideCount = 0;
   const simNow = state.simTime, dayNow = Math.floor(simNow / 24);
+  gameBoost = boost;
+  updateGames(simNow, hour);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pv = new THREE.Vector3(), sv = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
   const ascale = agentScale();
@@ -3836,18 +4851,27 @@ function updateAgents(dt, hour, boost){
     const a = agents[i];
     // a spell at the local sports field: capped headcount, about an hour long
     if(a.sportField){
-      if(simNow >= a.sportUntil || a.sportUntil - simNow > 4){
-        a.sportField._vis = Math.max(0, (a.sportField._vis || 0) - 1);
-        a.sportField = null;
+      // the whistle goes and everybody leaves together
+      if(!a.sportField._game || gameOver(a.sportField._game, simNow)) leaveGame(a);
+    } else if(a.sporty && a.sportDay !== dayNow && hour >= a.sportAt && hour < a.sportAt + 1.3
+              && simNow >= (a.sportTry || 0)){
+      if(joinGame(a, simNow)) a.sportDay = dayNow;
+      else a.sportTry = simNow + 0.09;             // nothing on yet; look again shortly
+    }
+    // a spell on the roof garden: only ever from home, and only if there is one
+    if(a.onRoof){
+      if(simNow >= a.roofUntil || a.roofUntil - simNow > 4){
+        a.onRoof = false; a.y = 0; a.state = 'in'; a.hidden = true;
       }
-    } else if(a.sporty && a.sportDay !== dayNow && hour >= a.sportAt && hour < a.sportAt + 0.7){
-      a.sportDay = dayNow;
-      const f = a.sportSpot;
-      if(f && (f._vis || 0) < (f._cap || 6)){
-        f._vis = (f._vis || 0) + 1;
-        a.sportField = f;
-        a.sportUntil = simNow + 0.85 + rnd() * 0.45;
-      }
+    } else if(a.roofer && a.roofDay !== dayNow && hour >= a.roofAt && hour < a.roofAt + 0.9
+              && a.state === 'in' && a.at === a.home && a.home && a.home._roofY > 0){
+      a.roofDay = dayNow;
+      a.onRoof = true;
+      a.roofUntil = simNow + 0.5 + rnd() * 1.6;
+      a.state = 'mill'; a.hidden = false; a.wait = 0;
+      const sp0 = roofSpot(a.home);
+      a.x = sp0[0]; a.z = sp0[1]; a.y = a.home._roofY;
+      a.mx = a.x; a.mz = a.z;
     }
     const place = desiredPlace(a, hour);
     const want = targetFor(a, place);
@@ -3873,6 +4897,10 @@ function updateAgents(dt, hour, boost){
         } else {
         const outdoorsy = a.dest && (a.purpose === 'leisure' || a.purpose === 'sport') &&
               (TYPES[a.dest.type].kind === 'green' || TYPES[a.dest.type].kind === 'landmark');
+        if(a.sportField && a.dest === a.sportField && a.sportField._game && !a.atGame){
+          a.atGame = true;
+          joinArrival(a.sportField._game, simNow);
+        }
         a.state = outdoorsy ? 'mill' : 'in';
         a.at = a.dest;
         a.hidden = a.state === 'in';
@@ -3925,18 +4953,19 @@ function updateAgents(dt, hour, boost){
       a.hidden = false;
       a.wait -= dt;
       const dx = a.mx - a.x, dz = a.mz - a.z, L = Math.hypot(dx, dz);
+      const playing = a.gameRole === 'play';
       if(L < 1.2 || a.wait < -6){
         if(a.wait > 0){ /* pausing */ }
         else {
           const o = a.at || a.dest;
-          if(o){
-            a.mx = o._cx + (rnd() - 0.5) * o._w * 0.82;
-            a.mz = o._cz + (rnd() - 0.5) * o._d * 0.82;
-          }
-          a.wait = 1.5 + rnd() * 6;
+          if(o){ const s = a.onRoof ? roofSpot(o) : millSpot(a, o); a.mx = s[0]; a.mz = s[1]; }
+          // players are always on the move; a crowd mostly stands and watches
+          a.wait = playing ? 0.2 + rnd() * 1.2
+                 : a.gameRole === 'watch' ? 4 + rnd() * 9
+                 : 1.5 + rnd() * 6;
         }
       } else {
-        const sp = AGENT_BASE * 0.30 * a.spd * boost * dt;
+        const sp = AGENT_BASE * (playing ? 0.85 : 0.30) * a.spd * boost * dt;
         a.hx = dx / L; a.hz = dz / L;
         a.x += a.hx * sp; a.z += a.hz * sp;
       }
@@ -3947,17 +4976,25 @@ function updateAgents(dt, hour, boost){
       m.setPosition(0, -500, 0);
     } else {
       outsideCount++;
-      const bob = a.state === 'go' ? Math.sin((perfNow * 0.009 + i) * 1.6) * 0.06 : 0;
-      pv.set(a.x, terrainGuessY(a.x, a.z) + bob, a.z);
+      // walkers bob with their stride; a cyclist rolls along more evenly
+      const bob = a.state !== 'go' ? 0
+                : a.cyclist ? Math.sin((perfNow * 0.013 + i) * 1.6) * 0.025
+                : Math.sin((perfNow * 0.009 + i) * 1.6) * 0.06;
+      pv.set(a.x, (a.y || terrainGuessY(a.x, a.z)) + bob, a.z);
       q.setFromAxisAngle(up, Math.atan2(a.hx, a.hz));
       sv.set(ascale, ascale, ascale);
       m.compose(pv, q, sv);
     }
-    if(agentMesh) agentMesh.setMatrixAt(i, m);
+    if(a.cyclist){ if(bikeMesh) bikeMesh.setMatrixAt(a.slot, m); }
+    else if(agentMesh) agentMesh.setMatrixAt(a.slot, m);
   }
   if(agentMesh){
-    agentMesh.count = n;
+    agentMesh.count = walkerCount;
     agentMesh.instanceMatrix.needsUpdate = true;
+  }
+  if(bikeMesh){
+    bikeMesh.count = riderCount;
+    bikeMesh.instanceMatrix.needsUpdate = true;
   }
   $('outside').textContent = fmtN(Math.round(outsideCount * (state.population > 0 && agents.length ? state.population / agents.length : 0)));
 }
@@ -4218,7 +5255,7 @@ function setGhostFor(spec, gx, gz, rot, valid){
   const r = rot & 3;
   const w = ((r % 2) ? d0 : w0) * CELL, d = ((r % 2) ? w0 : d0) * CELL;
   const st = (typeof spec === 'object' && spec.stories) || T.stories || 0;
-  const h = st ? st * STORY : 3;
+  const h = st ? st * storeyH(type) : 3;
   const cx = wx(gx) - CELL/2 + w/2, cz = wz(gz) - CELL/2 + d/2;
   ghost.scale.set(w - 0.6, h, d - 0.6);
   ghost.position.set(cx, h / 2, cz);
@@ -4278,6 +5315,10 @@ function describe(o){
   bits.push((f.w * CELL) + '×' + (f.d * CELL) + ' m');
   if(hasStyle(o.type)) bits.push(STYLES[clamp(o.style | 0, 0, 4)]);
   if(o.type === 'sports' || o.type === 'stadium') bits.push(SPORTS[clamp(o.sport | 0, 0, SPORTS.length - 1)]);
+  if(o._game && o._game.ends !== null){
+    const g = o._game, here = g.here || 0, coming = g.players + g.watchers - here;
+    bits.push('<b>game on</b> · ' + here + ' here' + (coming > 0 ? ', ' + coming + ' on the way' : ''));
+  }
   if(o.lvl) bits.push('on a roof');
   if(o.type === 'subway'){
     const on = lineOfStation(o.uid);
@@ -4637,7 +5678,8 @@ const EYE = 1.62, BIRD_Y = 6.4;      // a person's eye line; a bird about 20 fee
 const TRAM_NOSE = 9.2;               // from the tram's centre to the driver's cab
 
 /* --- points worth showing ------------------------------------------------- */
-const POI_WEIGHT = {fountain:9, statue:8, cathedral:8, arch:7, spire:7, mega:6, stadium:6,
+const POI_WEIGHT = {fountain:9, statue:8, cathedral:8, cityhall:8, arch:7, spire:7, mega:6,
+                    sportsmega:6, stadium:6,
                     lake:6, park:5, sportspark:5, plaza:4, prom:5, forest:3, sports:3,
                     mall:2, shopping:2};
 function flyPoints(){
@@ -4812,8 +5854,8 @@ function subjectPose(){
       cine.idx = agents.indexOf(s);
       if(cine.idx < 0) return null;
     }
-    return {x: s.x, y: (s.hidden || s.state === 'in') ? null : 0, z: s.z,
-            hx: s.hx, hz: s.hz, eye: EYE * clamp(state.pplSize, 0.5, 1.6)};
+    return {x: s.x, y: (s.hidden || s.state === 'in') ? null : (s.y || 0), z: s.z,
+            hx: s.hx, hz: s.hz, eye: (s.cyclist ? 1.66 : EYE) * clamp(state.pplSize, 0.5, 1.6)};
   }
   if(trams.indexOf(s) < 0 || s.wx === undefined) return null;
   // ride in the cab, not the middle: the body is 21 m long, so sit just behind
@@ -4891,7 +5933,7 @@ function startFollow(subject, kind, label){
   cine.back = tram ? 24 : 0;
   cine.maxBack = tram ? 44 : 16;
   const p = subjectPose();
-  cine.pos.set(p ? p.x : cam.target.x, (p ? p.eye : 2), p ? p.z : cam.target.z);
+  cine.pos.set(p ? p.x : cam.target.x, p ? p.y + p.eye : 2, p ? p.z : cam.target.z);
   cine.look.copy(cine.pos).add(new THREE.Vector3(p ? p.hx * 20 : 20, 0, p ? p.hz * 20 : 0));
   document.body.classList.add('cinema');
   $('cine').classList.add('show');
@@ -4941,8 +5983,10 @@ function pickRider(e){
   // Only go looking for individual people when zoomed in far enough to see
   // them — otherwise a distant click meant for a building grabs a passer-by.
   if(cam.dist > 500) return null;
+  // test against where the figure actually is — pinning this to ground level
+  // makes everyone on a roof garden impossible to click
   const agent = nearestOn(agents,
-    a => (a.hidden || a.state === 'in') ? null : {x:a.x, y:1.0, z:a.z}, 2.2);
+    a => (a.hidden || a.state === 'in') ? null : {x:a.x, y:(a.y || 0) + 1.0, z:a.z}, 2.2);
   if(agent) return {subject: agent, kind: 'agent', label: agentLabel(agent)};
   return null;
 }
@@ -4950,8 +5994,9 @@ function agentLabel(a){
   const where = a.purpose === 'work' ? 'off to work'
               : a.purpose === 'leisure' ? 'out and about'
               : a.purpose === 'sport' ? 'off to play'
+              : a.onRoof ? 'up on the roof'
               : a.state === 'mill' ? 'taking the air' : 'heading home';
-  const how = a.mode === 'bike' ? ' by bike' : a.mode === 'transit' ? ' by transit' : ' on foot';
+  const how = a.cyclist ? ' by bike' : a.mode === 'transit' ? ' by transit' : ' on foot';
   return 'A resident, ' + where + (a.state === 'go' ? how : '');
 }
 
@@ -5107,7 +6152,7 @@ function inspectCaption(o){
   if(cap.res) bits.push('<b>' + fmtN(cap.res) + '</b> residents');
   if(cap.jobs) bits.push('<b>' + fmtN(cap.jobs) + '</b> jobs');
   bits.push('<b>' + (w * CELL) + '×' + (d * CELL) + ' m</b> base');
-  if(st) bits.push('<b>' + Math.round(st * STORY) + ' m</b> tall');
+  if(st) bits.push('<b>' + Math.round(st * storeyH(o.type)) + ' m</b> tall');
   return bits.join(' · ');
 }
 const metroCss = c => {
@@ -5546,10 +6591,33 @@ const estBlocks = i => {
 };
 const estPop = i => {
   const S = CITY_SIZES[i], D = DENSITIES[newOpts.den];
+  if(LAYOUTS[newOpts.lay].k === 'planned'){
+    const g = plannedGrid(i);
+    return Math.round(g.hoods * HOOD_POP / 5000) * 5000;
+  }
   const b = estBlocks(i);
   const p = b.w * b.h * S.per / (D.spread * D.spread);
   return Math.round(p / 5000) * 5000;
 };
+/* How much of a planned city will actually fit on the chosen map. */
+function plannedGrid(i){
+  const S = CITY_SIZES[i];
+  const nb = Math.floor(MAP_SIZES[newOpts.map].g / PITCH);
+  const target = (S.fw[0] + S.fw[1]) / 2 * (S.fh[0] + S.fh[1]) / 2 * S.per;
+  const wantHood = clamp(Math.round(target / HOOD_POP), 1, 400);
+  const wantBiz = clamp(Math.round(target * 1.10 / BIZ_JOBS), 1, 60);
+  const wantBig = Math.max(1, Math.round(target / BIG_EVERY));
+  let CP = target > 400000 ? 3 : target > 60000 ? 2 : 1;
+  const need = wantHood + wantBiz + wantBig * 2 + CP * CP;
+  const fit = Math.max(3, Math.floor((nb - 2) / HOOD_PITCH));
+  const gw = clamp(Math.ceil(Math.sqrt(need)), 2, fit);
+  const gh = clamp(Math.ceil(need / gw), 2, fit);
+  CP = Math.max(1, Math.min(CP, Math.floor(Math.min(gw, gh) / 2)));
+  const cells = gw * gh - CP * CP - wantBig * 2;
+  return {gw, gh, CP, wantHood, wantBiz, wantBig,
+          hoods: Math.max(0, Math.min(wantHood, cells - Math.min(wantBiz, cells))),
+          biz: Math.min(wantBiz, cells), full: gw * gh >= need};
+}
 function renderNewDialog(){
   const nb = Math.floor(MAP_SIZES[newOpts.map].g / PITCH) - 3;
   $('dmap').innerHTML = MAP_SIZES.map((m, i) =>
@@ -5571,6 +6639,15 @@ function renderNewDialog(){
   const lay = LAYOUTS[newOpts.lay];
   $('dlayv').textContent = lay.d +
     (lay.k === 'random' ? '' : ' Plus a tournament sports complex per 250k residents.');
+  if(lay.k === 'planned'){
+    const g = plannedGrid(newOpts.size);
+    const km = n => (n * HOOD_PITCH * PITCH * CELL / 1000).toFixed(1);
+    $('dlayv').textContent = lay.d + ' ' + g.hoods + ' neighbourhoods, ' + g.biz +
+      ' business districts, a factory district, ' + g.wantBig + ' hospital' +
+      (g.wantBig > 1 ? 's' : '') + ' and ' + g.wantBig + ' mall' + (g.wantBig > 1 ? 's' : '') + '.';
+    $('ddenv').textContent = D.d + ' Covers ' + km(g.gw) + '×' + km(g.gh) + ' km' +
+      (g.full ? '.' : ' — bigger than this map, so it will be cut short.');
+  } else
   $('ddenv').textContent = D.d + ' Covers ' + b.w + '×' + b.h + ' blocks (' +
     (b.w * PITCH * CELL / 1000).toFixed(1) + '×' + (b.h * PITCH * CELL / 1000).toFixed(1) + ' km)' +
     (b.w * b.h > 2500 ? ' — big enough to be slow to edit.' : '.');
@@ -5628,9 +6705,20 @@ function blockLandFrac(bx, bz){
 }
 function placeInBlock(bx, bz, spec, rot){
   const gx0 = bx * PITCH, gz0 = bz * PITCH, span = PITCH - 1;
-  const [w0, d0] = tdims(spec);
+  const [w0, d0, ty] = tdims(spec);
   const w = (rot % 2) ? d0 : w0, d = (rot % 2) ? w0 : d0;
-  if(w > span || d > span) return false;
+  /* Bigger than a block. A type that spans streets — a school campus, a large
+     hospital — may still go here and straddle into what is next door; without
+     this it silently never places, and asking for bigger schools quietly gets
+     you fewer schools instead. Anything else genuinely doesn't fit. */
+  if(w > span || d > span){
+    if(!(TYPES[ty] && TYPES[ty].spans)) return false;
+    for(let a = 0; a < 12; a++){
+      const gx = gx0 - Math.floor(rnd() * 2) * PITCH, gz = gz0 - Math.floor(rnd() * 2) * PITCH;
+      if(canPlace(spec, gx, gz, rot, -1)){ addObject(spec, gx, gz, rot); return true; }
+    }
+    return false;
+  }
   const opts = [];
   for(let i = 0; i <= span - w; i++) for(let j = 0; j <= span - d; j++) opts.push([i, j]);
   for(let i = opts.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); const t = opts[i]; opts[i] = opts[j]; opts[j] = t; }
@@ -5675,8 +6763,11 @@ function fillSportZone(bx, bz, wB, hB){
   for(let att = 0; att < 60; att++){
     const gx = gx0 + Math.floor(rnd() * (wB * PITCH - 4));
     const gz = gz0 + Math.floor(rnd() * (hB * PITCH - 4));
-    const spec = rnd() < 0.72
+    const r2 = rnd();
+    const spec = r2 < 0.58
       ? {type:'sports', w:4 + Math.floor(rnd()*2), d:3 + Math.floor(rnd()*2), sport:Math.floor(rnd()*4)}
+      : r2 < 0.74 ? {type:'pool', w:3, d:3}
+      : r2 < 0.86 ? {type:'playground', w:2, d:2}
       : {type:'plaza', w:2, d:2};
     if(canPlace(spec, gx, gz, 0, -1)){ addObject(spec, gx, gz, 0); made++; }
   }
@@ -5723,7 +6814,9 @@ function hospitalS(){
   const o = pick([[16,4,3],[20,4,4],[24,4,3],[30,4,4],[36,4,4]]);
   return {type:'hospital', stories:dh(o[0], 'hospital'), w:o[1], d:o[2], tint: 4};
 }
-function schoolS(){ const o = pick([[4,4,3],[5,4,3],[5,4,4],[6,3,3],[8,4,4]]);
+/* Schools are campuses, not corner shops: several storeys and a footprint that
+   often takes more than a block, which is why the type spans streets. */
+function schoolS(){ const o = pick([[7,6,5],[8,6,5],[8,7,5],[9,6,6],[9,7,6],[10,8,6],[10,7,7]]);
   return {type:'school', stories:dh(o[0], 'school'), w:o[1], d:o[2], tint: 1}; }
 function libraryS(){ const o = pick([[4,3,3],[5,3,3],[6,2,2],[4,4,3]]);
   return {type:'library', stories:dh(o[0], 'library'), w:o[1], d:o[2], tint: 0}; }
@@ -5735,6 +6828,10 @@ function sportsS(){ const o = pick([[4,3],[5,3],[5,4],[4,4]]);
   return {type:'sports', w:o[0], d:o[1]}; }
 function shopS(){ const o = pick([[3,3,3],[4,3,3],[5,2,2],[6,3,3],[4,4,3],[8,3,3]]);
   return {type:'shopping', stories:dh(o[0], 'shopping'), w:o[1], d:o[2], tint: pick([1,2,3,0])}; }
+function playS(){ const o = pick([[2,2],[3,2],[2,3],[3,3]]);
+  return {type:'playground', w:o[0], d:o[1]}; }
+function poolS(){ const o = pick([[3,3],[4,3],[3,4],[4,4]]);
+  return {type:'pool', w:o[0], d:o[1]}; }
 
 function recipeBiz(){
   const r = [offices(rnd() < 0.55 ? 'tall' : 'low')];
@@ -5754,12 +6851,16 @@ function recipeHood(){
   const r = [pick([apts(hoodTier()), apts(hoodTier()), apts(hoodTier()), apts(hoodTier()),
                    apts(hoodTier()), schoolS(), libraryS(), parkS(), shopS()])];
   r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), apts(hoodTier(1)), shopS()]));
-  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), plazaS(), libraryS(), shopS()]));
-  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), schoolS(), shopS()]));
+  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), plazaS(), libraryS(), shopS(), playS()]));
+  if(rnd() < 0.45) r.push(pick([apts(hoodTier(2)), plazaS(), schoolS(), shopS(), playS()]));
   return r;
 }
 function recipeGreen(){
-  return rnd() < 0.45 ? [sportsS(), plazaS()] : [parkS(), maybe(0.5, plazaS(), parkS())];
+  const r = rnd();
+  if(r < 0.34) return [sportsS(), plazaS()];
+  if(r < 0.48) return [playS(), maybe(0.5, parkS(), plazaS())];
+  if(r < 0.58) return [poolS(), maybe(0.5, plazaS(), parkS())];
+  return [parkS(), maybe(0.5, plazaS(), parkS())];
 }
 /* --- Organized layout: work and home kept firmly apart ------------------- */
 /* The office district — towers, a little retail, a little green, nothing to
@@ -5788,14 +6889,570 @@ function recipeHoodOrg(){
   const r = [pick([apts(hoodTier()), apts(hoodTier()), apts(hoodTier()), apts(hoodTier()),
                    apts(hoodTier()), apts(hoodTier()), schoolS(), libraryS(), parkS()])];
   r.push(pick([apts(hoodTier(1)), apts(hoodTier(1)), apts(hoodTier(2)), shopS(), schoolS()]));
-  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), parkS(), plazaS(), libraryS(), shopS(), sportsS()]));
-  if(rnd() < 0.55) r.push(pick([apts(hoodTier(2)), plazaS(), parkS(), sportsS(), shopS()]));
+  r.push(pick([apts(hoodTier(2)), apts(hoodTier(1)), parkS(), plazaS(), libraryS(), shopS(), sportsS(), playS()]));
+  if(rnd() < 0.55) r.push(pick([apts(hoodTier(2)), plazaS(), parkS(), sportsS(), shopS(), playS()]));
   return r;
 }
 function recipeShore(){
   const r = [pick([apts(hoodTier(1)), apts(hoodTier()), apts(hoodTier(2)), parkS(), sportsS()])];
   r.push(pick([apts(hoodTier(2)), plazaS(), 'prom']));
   return r;
+}
+
+/* ============================================================================
+   13b. THE PLANNED LAYOUT
+   A city assembled from repeating parts on a grid rather than grown organically:
+   self-contained residential neighbourhoods, business districts, and one huge
+   central park, each separated from the next by a block of open ground that the
+   trams and bike routes run along.
+   ========================================================================== */
+
+/* Twelve pitches packed shoulder to shoulder — somewhere to run a tournament. */
+function fillTournament(bx, bz, w, h){
+  let made = 0;
+  for(let i = 0; i < w; i++) for(let j = 0; j < h; j++){
+    const gx0 = (bx + i) * PITCH, gz0 = (bz + j) * PITCH;
+    for(let k = 0; k < 2; k++){                       // two pitches to a block
+      const spec = {type:'sports', w: 5, d: 2, sport: made % 3};   // no running tracks this size
+      const gz = gz0 + k * 3;
+      if(canPlace(spec, gx0, gz, 0, -1)){ addObject(spec, gx0, gz, 0); made++; }
+    }
+  }
+  return made;
+}
+/* Which way to turn the plan so its apartments face the centre of the city. */
+function hoodRot(dx, dz){
+  if(Math.abs(dz) >= Math.abs(dx)) return dz < 0 ? 0 : 2;
+  return dx > 0 ? 1 : 3;
+}
+/* A neighbourhood of ten thousand, laid out to its plan. Each one picks its own
+   character — a few tall towers, a lot of low blocks, or a mix — and its own
+   style and colour, so neighbourhoods read as distinct places rather than one
+   texture repeated across the map. */
+function fillHood(bx, bz, toCX, toCZ){
+  const r = hoodRot(toCX, toCZ), N = HOOD_BLK - 1;
+  const rot = (u, v) => r === 0 ? [u, v] : r === 1 ? [N - v, u]
+                      : r === 2 ? [N - u, N - v] : [v, N - u];
+  const feel = rnd();
+  const mode = feel < 0.34 ? 'tower' : feel < 0.68 ? 'low' : 'mixed';
+  const style = Math.floor(rnd() * 5);
+  const tint = pick(WARM_TINTS);
+  const civicTint = pick(WARM_TINTS);
+  const same = (spec) => {            // most of a neighbourhood matches itself
+    spec.style = rnd() < 0.86 ? style : Math.floor(rnd() * 5);
+    spec.tint  = rnd() < 0.86 ? tint : pick(WARM_TINTS);
+    return spec;
+  };
+  const aptSpec = () => {
+    const m = mode === 'mixed' ? (rnd() < 0.5 ? 'tower' : 'low') : mode;
+    const o = m === 'tower' ? pick([[64,4,4],[78,4,4],[92,3,3],[70,5,5],[56,4,4]])
+                            : pick([[10,2,2],[14,2,2],[12,3,3],[16,3,3],[18,2,2],[8,3,3]]);
+    return same({type:'apartments', stories: dh(o[0], 'apartments'), w:o[1], d:o[2]});
+  };
+  const greenSpec = () => {
+    const q = rnd();
+    return q < 0.30 ? {type:'park', w:2, d:2}
+         : q < 0.46 ? {type:'playground', w:2, d:2}
+         : q < 0.60 ? {type:'plaza', w:2, d:2}
+         : q < 0.76 ? {type:'sports', w:3, d:2, sport:Math.floor(rnd() * SPORTS.length)}
+         : q < 0.90 ? {type:'park', w:3, d:2}
+         : {type:'pool', w:2, d:2};
+  };
+  let res = 0;
+  const tourn = [];
+  for(let v = 0; v < HOOD_BLK; v++) for(let u = 0; u < HOOD_BLK; u++){
+    const ch = HOOD_MAP[v][u];
+    const [dx, dz] = rot(u, v);
+    const X = bx + dx, Z = bz + dz;
+    if(ch === 'T'){ tourn.push([X, Z]); continue; }
+    if(ch === 'A'){
+      let placed = 0;
+      for(let k = 0; k < 3 && res < HOOD_POP; k++){
+        const spec = aptSpec();
+        if(placeInBlock(X, Z, spec, rnd() < 0.5 ? 0 : 1)){ res += capacityOf(spec).res; placed++; }
+      }
+      // once the neighbourhood is housed, the rest of its plots turn green
+      for(let k = placed ? 2 : 0; k < 2; k++) placeInBlock(X, Z, greenSpec(), rnd() < 0.5 ? 0 : 1);
+      continue;
+    }
+    if(ch === 'S'){ const sp = schoolS(); sp.tint = civicTint; sp.style = style; placeInBlock(X, Z, sp, 0); continue; }
+    if(ch === 'G'){                          // every school gets these on its doorstep
+      placeInBlock(X, Z, {type:'playground', w:2, d:2}, 0);
+      placeInBlock(X, Z, {type:'park', w:2, d:2}, 0);
+      placeInBlock(X, Z, {type:'park', w:2, d:2}, 0);
+      continue;
+    }
+    if(ch === 'F'){ placeInBlock(X, Z, {type:'sports', w:4, d:3, sport:0}, rnd() < 0.5 ? 0 : 1); continue; }
+    if(ch === 'L'){ const sp = libraryS(); sp.tint = civicTint; sp.style = style; placeInBlock(X, Z, sp, 0); continue; }
+    if(ch === 'H'){ const sp = shopS(); sp.tint = civicTint; sp.style = style; placeInBlock(X, Z, sp, 0); continue; }
+    for(let k = 0; k < 2; k++) placeInBlock(X, Z, greenSpec(), rnd() < 0.5 ? 0 : 1);
+  }
+  if(tourn.length){
+    const xs = tourn.map(c => c[0]), zs = tourn.map(c => c[1]);
+    const x0 = Math.min(...xs), z0 = Math.min(...zs);
+    fillTournament(x0, z0, Math.max(...xs) - x0 + 1, Math.max(...zs) - z0 + 1);
+  }
+  return res;
+}
+/* A business district: a handful of tall towers with real space between them,
+   not a solid field of offices. */
+function fillBiz(bx, bz, quota){
+  let jobs = 0;
+  for(let dx = 0; dx < HOOD_BLK; dx++) for(let dz = 0; dz < HOOD_BLK; dz++){
+    const tower = ((dx + dz) & 1) === 0 && jobs < quota;
+    if(tower){
+      const spec = offices(rnd() < 0.75 ? 'tall' : 'low');
+      if(placeInBlock(bx + dx, bz + dz, spec, rnd() < 0.5 ? 0 : 1)){ jobs += capacityOf(spec).jobs; continue; }
+    }
+    const q = rnd();
+    placeInBlock(bx + dx, bz + dz, q < 0.40 ? parkS() : q < 0.68 ? plazaS()
+               : q < 0.86 ? {type:'playground', w:2, d:2} : shopS(), 0);
+  }
+  return jobs;
+}
+/* The one feature everybody knows. Nine parts in ten are woodland, and it has
+   to read as *one* wood: tile it with forests big enough to swallow the streets
+   between them rather than one per block, which leaves a footpath round every
+   single patch and looks like allotments. */
+function fillCentralPark(bx, bz, w, h){
+  const gx0 = bx * PITCH, gz0 = bz * PITCH;
+  const gw = w * PITCH - 1, gh = h * PITCH - 1;
+  // a proper lake, off to one side
+  const lw = 10, ld = 6;
+  const lx = gx0 + Math.floor(gw * (rnd() < 0.5 ? 0.16 : 0.58)), lz = gz0 + Math.floor(gh * 0.55);
+  for(const [w2, d2] of [[lw, ld], [8, 5], [6, 4]]){
+    if(canPlace({type:'lake', w:w2, d:d2}, lx, lz, 0, -1)){
+      addObject({type:'lake', w:w2, d:d2}, lx, lz, 0); break;
+    }
+  }
+  // the arch, and it should be visible from anywhere in the city
+  {
+    const spec = {type:'arch', w:5, d:2, stories:80};   // 5 wide: a block is 5 cells
+    const ax = gx0 + Math.floor(gw / 2) - 2, az = gz0 + Math.floor(gh / 2) - 1;
+    let up = false;
+    for(let a = 0; a < 40 && !up; a++){
+      const ox = ax + ((a % 7) - 3) * 6, oz = az + (Math.floor(a / 7) - 2) * 6;
+      for(const rot of [0, 1]) if(canPlace(spec, ox, oz, rot, -1)){
+        addObject(spec, ox, oz, rot); up = true; break;
+      }
+    }
+  }
+  /* Lay the wood out on a coarse grid of big spanning pieces — big enough that
+     the street underneath vanishes, so it reads as one forest instead of a
+     patchwork with a footpath round every square. A few tiles are clearings
+     instead: a monument, a bit of lawn, somewhere to arrive at. */
+  const STEP = 18;
+  for(let gz = gz0; gz < gz0 + gh - 4; gz += STEP){
+    for(let gx = gx0; gx < gx0 + gw - 4; gx += STEP){
+      if(rnd() < 0.10){                                    // a clearing
+        const q = rnd();
+        const spec = q < 0.34 ? {type:'fountain', w:3, d:3}
+                   : q < 0.64 ? {type:'statue', w:3, d:3}
+                   : q < 0.80 ? {type:'playground', w:3, d:3}
+                   : {type:'sports', w:4, d:3, sport:Math.floor(rnd() * SPORTS.length)};
+        const cx2 = gx + 6, cz2 = gz + 6;
+        if(canPlace(spec, cx2, cz2, 0, -1)) addObject(spec, cx2, cz2, 0);
+        if(canPlace({type:'park', w:5, d:4}, gx + 1, gz + 1, 0, -1))
+          addObject({type:'park', w:5, d:4}, gx + 1, gz + 1, 0);
+        for(let a = 0; a < 8; a++){
+          const ox = gx + Math.floor(rnd() * STEP), oz = gz + Math.floor(rnd() * STEP);
+          for(const n of [5, 3, 2]) if(canPlace({type:'forest', w:n, d:n}, ox, oz, 0, -1)){
+            addObject({type:'forest', w:n, d:n}, ox, oz, 0); break;
+          }
+        }
+        continue;
+      }
+      /* Only large pieces here. Anything under about ten cells fails to cover a
+         street line, and a scatter of small woods is exactly the patchwork we
+         are trying to avoid — better to leave a glade than fill it with scraps. */
+      /* Eighteen wide against an eighteen-cell step means neighbouring woods
+         meet exactly, with no one-cell seam of street between them — that seam
+         is what put a footpath around every patch. */
+      let done = false;
+      for(let n = 18; n >= 11 && !done; n--){
+        if(gx + n > gx0 + gw || gz + n > gz0 + gh) continue;
+        for(const [ox, oz] of [[gx, gz], [gx + 1, gz], [gx, gz + 1]]){
+          if(canPlace({type:'forest', w:n, d:n}, ox, oz, 0, -1)){
+            addObject({type:'forest', w:n, d:n}, ox, oz, 0); done = true; break;
+          }
+        }
+      }
+      if(!done) for(let a = 0; a < 8 && !done; a++){
+        const ox = gx + Math.floor(rnd() * 6), oz = gz + Math.floor(rnd() * 6);
+        for(let n = 13; n >= 8; n--) if(canPlace({type:'forest', w:n, d:n}, ox, oz, 0, -1)){
+          addObject({type:'forest', w:n, d:n}, ox, oz, 0); done = true; break;
+        }
+      }
+    }
+  }
+  // a walking loop right round it, and a cycle loop just outside that
+  const ringWalk = [gz0 - 1, gz0 + gh], ringBike = [gz0 - PITCH - 1, gz0 + gh + PITCH];
+  for(const line of ringWalk){ placeLine('walk', line, 'x', gx0 - 2, gx0 + gw + 2); }
+  for(const line of [gx0 - 1, gx0 + gw]){ placeLine('walk', line, 'z', gz0 - 2, gz0 + gh + 2); }
+  for(const line of ringBike){ placeLine('bike', line, 'x', gx0 - PITCH - 2, gx0 + gw + PITCH + 2); }
+  for(const line of [gx0 - PITCH - 1, gx0 + gw + PITCH]){
+    placeLine('bike', line, 'z', gz0 - PITCH - 2, gz0 + gh + PITCH + 2);
+  }
+}
+
+/* Heavy industry, out at the far edge and well away from the water. */
+function fillIndustry(bx, bz){
+  let made = 0;
+  const gx0 = bx * PITCH, gz0 = bz * PITCH;
+  for(let r = 0; r < 4; r++) for(let c = 0; c < 3; c++){
+    const spec = {type:'factory', w: 11, d: 8, stories: dh(2 + Math.floor(rnd() * 2), 'factory')};
+    const gx = gx0 + c * 12, gz = gz0 + r * 9;
+    if(canPlace(spec, gx, gz, 0, -1)){ addObject(spec, gx, gz, 0); made++; }
+  }
+  for(let k = 0; k < 8; k++){
+    const gx = gx0 + Math.floor(rnd() * (HOOD_BLK * PITCH - 6));
+    const gz = gz0 + Math.floor(rnd() * (HOOD_BLK * PITCH - 6));
+    const spec = rnd() < 0.6 ? {type:'forest', w:5, d:5} : {type:'park', w:4, d:4};
+    if(canPlace(spec, gx, gz, 0, -1)) addObject(spec, gx, gz, 0);
+  }
+  return made;
+}
+
+/* A shopping quarter: a dense knot of shops with a ring of green round it.
+   No pitches here — this is somewhere to wander, not to play. */
+function fillShopping(bx, bz){
+  const style = Math.floor(rnd() * 5), tint = pick(COOL_TINTS);
+  for(let dx = 0; dx < HOOD_BLK; dx++) for(let dz = 0; dz < HOOD_BLK; dz++){
+    const edge = dx === 0 || dz === 0 || dx === HOOD_BLK - 1 || dz === HOOD_BLK - 1;
+    if(edge){
+      const q = rnd();
+      placeInBlock(bx + dx, bz + dz, q < 0.46 ? {type:'forest', w:5, d:5}
+                 : q < 0.78 ? parkS() : plazaS(), 0);
+      continue;
+    }
+    for(let k = 0; k < 3; k++){
+      const sp = shopS();
+      sp.style = rnd() < 0.82 ? style : Math.floor(rnd() * 5);
+      sp.tint  = rnd() < 0.82 ? tint : pick(COOL_TINTS);
+      placeInBlock(bx + dx, bz + dz, sp, rnd() < 0.5 ? 0 : 1);
+    }
+    if(rnd() < 0.30) placeInBlock(bx + dx, bz + dz, plazaS(), 0);
+  }
+  // somewhere to meet in the middle of it
+  const mid = Math.floor(HOOD_BLK / 2);
+  placeInBlock(bx + mid, bz + mid, {type:'fountain', w:2, d:2}, 0);
+  if(rnd() < 0.5) placeInBlock(bx + mid - 1, bz + mid, {type:'statue', w:2, d:2}, 0);
+}
+
+function generatePlanned(SZ){
+  const NB = Math.floor(GRID / PITCH);
+  const target = (SZ.fw[0] + SZ.fw[1]) / 2 * (SZ.fh[0] + SZ.fh[1]) / 2 * SZ.per;
+  const wantHood = clamp(Math.round(target / HOOD_POP), 1, 400);
+  const wantBiz  = clamp(Math.round(target * 1.10 / BIZ_JOBS), 1, 60);
+  const wantBig  = Math.max(1, Math.round(target / BIG_EVERY));
+  let CP = target > 400000 ? 3 : target > 60000 ? 2 : 1;     // central park, in district cells
+  const need = wantHood + wantBiz + wantBig * 2 + CP * CP;
+  const fit = Math.max(3, Math.floor((NB - 2) / HOOD_PITCH));
+  const gw = clamp(Math.ceil(Math.sqrt(need)), 2, fit);
+  const gh = clamp(Math.ceil(need / gw), 2, fit);
+  // on a map too small for the city, the park must not swallow the whole grid
+  CP = Math.max(1, Math.min(CP, Math.floor(Math.min(gw, gh) / 2)));
+  const bx0 = clamp(Math.round((NB - gw * HOOD_PITCH) / 2), 1, NB - 2);
+  /* Sit the grid against the shoreline rather than in the middle of the map —
+     this is a city by the water, and centring it on the terrain leaves a
+     pointless band of empty countryside between the last street and the sea. */
+  let shore = 0;
+  for(let bx = bx0; bx < bx0 + gw * HOOD_PITCH && bx < NB; bx++){
+    let last = -1;
+    for(let bz = 0; bz < NB; bz++) if(blockLandFrac(bx, bz) > 0.92) last = bz;
+    if(last >= 0) shore = shore === 0 ? last : Math.min(shore, last);
+  }
+  const bz0 = clamp(shore - gh * HOOD_PITCH + HOOD_PITCH - HOOD_BLK + 1, 1, NB - 2);
+  const originOf = (i, j) => [bx0 + i * HOOD_PITCH, bz0 + j * HOOD_PITCH];
+  const solid = (i, j) => {
+    const [bx, bz] = originOf(i, j);
+    if(bx + HOOD_BLK > NB - 1 || bz + HOOD_BLK > NB - 1) return false;
+    for(let a = 0; a < HOOD_BLK; a++) for(let b = 0; b < HOOD_BLK; b++)
+      if(blockLandFrac(bx + a, bz + b) < 0.92) return false;
+    return true;
+  };
+  // the central park sits in the middle; everything else is arranged around it
+  const ci = Math.floor((gw - CP) / 2), cj = Math.floor((gh - CP) / 2);
+  const role = new Map(), key = (i, j) => i + ',' + j;
+  const parkCells = [];
+  for(let i = ci; i < ci + CP; i++) for(let j = cj; j < cj + CP; j++){
+    role.set(key(i, j), 'park'); parkCells.push([i, j]);
+  }
+  const open = [];
+  for(let i = 0; i < gw; i++) for(let j = 0; j < gh; j++){
+    if(role.has(key(i, j)) || !solid(i, j)) continue;
+    const d = Math.hypot(i - (gw - 1) / 2, j - (gh - 1) / 2);
+    open.push([i, j, d]);
+  }
+  open.sort((a, b) => a[2] - b[2]);                   // nearest the centre first
+  /* If the map can't hold everything, scale the three uses down together rather
+     than letting offices and hospitals crowd out the neighbourhoods entirely —
+     a small city would otherwise end up with nowhere to live. */
+  const wantShops = Math.max(1, Math.round(target / 120000));
+  const totalWant = wantHood + wantBiz + wantBig * 2 + wantShops;
+  const sc = Math.min(1, open.length / Math.max(1, totalWant));
+  const nH = Math.max(1, Math.round(wantHood * sc));
+  const nB = Math.max(1, Math.round(wantBiz * sc));
+  const nG = Math.min(Math.round(wantBig * 2 * sc), Math.max(0, open.length - nH - nB));
+  const nS = Math.min(Math.max(1, Math.round(wantShops * sc)),
+                      Math.max(0, open.length - nH - nB - nG));
+  /* Homes ring the central park; the office towers go out to the rim where they
+     don't overshadow it, with the malls, hospitals and the shopping quarter in
+     the band between. Homes are claimed first — on a map too small for the city
+     everything else would otherwise crowd them out entirely. */
+  const taken = new Set();
+  let biz = 0, big = 0, hoods = 0, shops = 0;
+  for(let x = 0; x < open.length && hoods < nH; x++){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, 'hood'); taken.add(k); hoods++;
+  }
+  for(let x = open.length - 1; x >= 0 && biz < nB; x--){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, 'biz'); taken.add(k); biz++;
+  }
+  for(let x = open.length - 1; x >= 0 && big < nG; x--){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, big % 2 ? 'mall' : 'hospital'); taken.add(k); big++;
+  }
+  for(let x = Math.floor(open.length * 0.4); x < open.length && shops < nS; x++){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, 'shops'); taken.add(k); shops++;
+  }
+  /* If the homes couldn't all be claimed before the others took their cells,
+     hand back whatever is still spare. */
+  for(let x = 0; x < open.length && hoods < nH; x++){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, 'hood'); taken.add(k); hoods++;
+  }
+
+  /* Heavy industry goes outside the grid entirely, a full district beyond the
+     inland edge — inside it, the nearest homes would only be a street away. */
+  let industry = null;
+  for(let att = 0; att < 60 && !industry; att++){
+    const bx = bx0 + Math.floor(rnd() * Math.max(1, gw)) * HOOD_PITCH;
+    const bz = bz0 - HOOD_PITCH - 1 - Math.floor(rnd() * 2) * HOOD_PITCH;
+    if(bz < 1 || bx + HOOD_BLK > NB - 1) continue;
+    let ok = true;
+    for(let a = 0; a < HOOD_BLK && ok; a++) for(let b = 0; b < HOOD_BLK; b++)
+      if(blockLandFrac(bx + a, bz + b) < 0.9){ ok = false; break; }
+    if(ok) industry = [bx, bz];
+  }
+  for(let x = 0; x < open.length && hoods < nH; x++){
+    const k = key(open[x][0], open[x][1]);
+    if(taken.has(k)) continue;
+    role.set(k, 'hood'); taken.add(k); hoods++;
+  }
+
+  // ---- build it ----
+  if(parkCells.length){
+    const [px, pz] = originOf(ci, cj);
+    fillCentralPark(px, pz, CP * HOOD_PITCH - 1, CP * HOOD_PITCH - 1);
+  }
+  /* Homes, hospitals and malls first — then we know how many people live here
+     and how many already have work, and can size the offices to what's left. */
+  const later = [];
+  for(const [k, r] of role){
+    if(r === 'park') continue;
+    const [i, j] = k.split(',').map(Number);
+    const [bx, bz] = originOf(i, j);
+    if(r === 'biz'){ later.push([r, bx, bz]); continue; }
+    if(r === 'hood') fillHood(bx, bz, (gw - 1) / 2 - i, (gh - 1) / 2 - j);
+    else if(r === 'shops') fillShopping(bx, bz);
+    else if(r === 'hospital'){
+      placeInBlock(bx + 2, bz + 2, {type:'hospital', stories:dh(44, 'hospital'), w:5, d:5, tint:4}, 0);
+      for(const [dx, dz] of [[0,0],[4,0],[0,4],[4,4],[2,0],[0,2]])
+        placeInBlock(bx + dx, bz + dz, rnd() < 0.5 ? parkS() : plazaS(), 0);
+    } else if(r === 'mall'){
+      const spec = {type:'mall', w:9, d:9, stories:dh(6, 'mall')};
+      let done = false;
+      for(let a = 0; a < 3 && !done; a++) for(let b = 0; b < 3 && !done; b++)
+        if(canPlace(spec, (bx + a) * PITCH, (bz + b) * PITCH, 0, -1)){
+          addObject(spec, (bx + a) * PITCH, (bz + b) * PITCH, 0); done = true;
+        }
+      for(const [dx, dz] of [[0,4],[4,4],[4,0]]) placeInBlock(bx + dx, bz + dz, shopS(), 0);
+    }
+  }
+  /* City hall, sports megatowers and vertical farms. All three are spanning
+     types wanting several clear blocks, so they get their ground before the
+     office towers fill the business districts — try it afterwards and there is
+     never a gap big enough left, and none of them ever appear. Their jobs are
+     counted below, so the offices shrink to match. */
+  const placeBig = (spec, bx, bz, tries) => {
+    for(let a2 = 0; a2 < (tries || 40); a2++){
+      const gx = (bx + Math.floor(rnd() * (HOOD_BLK - 1))) * PITCH;
+      const gz = (bz + Math.floor(rnd() * (HOOD_BLK - 1))) * PITCH;
+      for(const rot of [0, 1]) if(canPlace(spec, gx, gz, rot, -1)){
+        addObject(spec, gx, gz, rot); return true;
+      }
+    }
+    return false;
+  };
+  const bizAt = later.map(x => [x[1], x[2]]);
+  /* The city hall faces the central park, where everybody can see it, and it
+     is the biggest civic thing in the city. Step the size down only if there is
+     genuinely nowhere to put a full one. */
+  for(const [w, d, st] of [[8, 8, 15], [8, 7, 14], [7, 6, 13], [6, 5, 11], [4, 4, 9]]){
+    const spec = {type:'cityhall', w, d, stories:st};
+    let placed = false;
+    if(parkCells.length){
+      const [px, pz] = originOf(ci, cj);
+      const span = CP * HOOD_PITCH;
+      for(let ring = 0; ring < 3 && !placed; ring++)
+        for(const [ox, oz] of [[px - 3 - ring * 2, pz + span / 2 - 4], [px + span + ring * 2, pz + span / 2 - 4],
+                               [px + span / 2 - 4, pz - 3 - ring * 2], [px + span / 2 - 4, pz + span + ring * 2]]){
+          if(placeBig(spec, Math.round(ox), Math.round(oz), 16)){ placed = true; break; }
+        }
+    }
+    for(let i2 = 0; i2 < bizAt.length && !placed; i2++)
+      if(placeBig(spec, bizAt[i2][0], bizAt[i2][1])) placed = true;
+    if(placed) break;
+  }
+  // a sports megatower per quarter-million, in the business districts
+  {
+    const want = Math.max(1, Math.round(target / 250000));
+    for(let i2 = 0, made = 0; i2 < bizAt.length && made < want; i2++){
+      const spec = {type:'sportsmega', w:6 + Math.floor(rnd() * 3), d:6 + Math.floor(rnd() * 3),
+                    stories:dh(14 + Math.floor(rnd() * 8), 'sportsmega')};
+      if(placeBig(spec, bizAt[i2][0], bizAt[i2][1])) made++;
+    }
+  }
+  /* Vertical farms out by the works and in among the offices — never on
+     neighbourhood ground, which is for living on. */
+  {
+    const want = Math.max(1, Math.round(target / 120000));
+    const pool = (industry ? [industry, industry] : []).concat(bizAt);
+    for(let i2 = 0, made = 0; i2 < pool.length * 2 && made < want; i2++){
+      const spec = {type:'farm', w:3 + Math.floor(rnd() * 2), d:3 + Math.floor(rnd() * 2),
+                    stories:dh(18 + Math.floor(rnd() * 16), 'farm')};
+      if(placeBig(spec, pool[i2 % pool.length][0], pool[i2 % pool.length][1], 24)) made++;
+    }
+  }
+  /* Not everyone works: children, students, parents at home and the retired are
+     most of a third of any city. Aim at roughly one job for every two residents
+     and take off what the schools, shops, hospitals and malls already provide —
+     whatever is left is what the office towers are for. */
+  let res = 0, have = 0;
+  for(const o of state.objects){ const c = capacityOf(o); res += c.res; have += c.jobs; }
+  const bizCells = later.filter(x => x[0] === 'biz').length;
+  const quota = Math.max(6000, (res * 0.5 - have) / Math.max(1, bizCells));
+  for(const [r, bx, bz] of later) fillBiz(bx, bz, quota);
+  if(industry) fillIndustry(industry[0], industry[1]);
+  planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP);
+  // a waterfront to walk along where the grid meets the sea
+  for(let gx = (bx0 - 1) * PITCH; gx < (bx0 + gw * HOOD_PITCH + 1) * PITCH; gx += 3){
+    if(gx < 1 || gx > GRID - 4) continue;
+    const gz = Math.round((shoreZ(wx(gx)) - 20) / CELL + HALF - 0.5);
+    for(const dz of [0, -1, 1, -2, 2])
+      if(canPlace('prom', gx, gz + dz, 0, -1)){ addObject('prom', gx, gz + dz, 0); break; }
+  }
+  /* A cathedral for roughly every 60,000 people, standing in the open ground
+     at the edge of a neighbourhood rather than buried inside one — by this
+     point the districts themselves are full, and the gaps are the only land
+     left big enough for a nave. */
+  {
+    const gaps = [];
+    for(let i = 0; i <= gw; i++) for(let j = 0; j <= gh; j++){
+      for(const [gbx, gbz] of [[bx0 + i * HOOD_PITCH + HOOD_BLK, bz0 + j * HOOD_PITCH],
+                               [bx0 + i * HOOD_PITCH, bz0 + j * HOOD_PITCH + HOOD_BLK]]){
+        if(gbx > bx0 + gw * HOOD_PITCH || gbz > bz0 + gh * HOOD_PITCH) continue;
+        if(blockLandFrac(gbx, gbz) > 0.92) gaps.push([gbx, gbz]);
+      }
+    }
+    for(let i = gaps.length - 1; i > 0; i--){
+      const j = Math.floor(rnd() * (i + 1)); const t = gaps[i]; gaps[i] = gaps[j]; gaps[j] = t;
+    }
+    let live = 0;
+    for(const o of state.objects) live += capacityOf(o).res;
+    const want = Math.max(3, Math.round(live / 50000));         // the same rate the grown layouts use
+    let made = 0;
+    for(const [gbx, gbz] of gaps){
+      if(made >= want) break;
+      const S = 4 + Math.floor(rnd() * 2), L = 7 + Math.floor(rnd() * 4);
+      const spec = {type:'cathedral', w:S, d:L, stories:10 + Math.floor(rnd() * 12)};
+      let up = false;
+      for(let a2 = 0; a2 < 10 && !up; a2++){
+        const gx = (gbx + Math.floor(rnd() * HOOD_BLK) * (rnd() < 0.5 ? 1 : 0)) * PITCH;
+        const gz = (gbz + Math.floor(rnd() * HOOD_BLK) * (rnd() < 0.5 ? 1 : 0)) * PITCH;
+        for(const rot of [0, 1]) if(canPlace(spec, gx, gz, rot, -1)){
+          addObject(spec, gx, gz, rot); made++; up = true; break;
+        }
+      }
+    }
+  }
+  // the ground between districts is woodland, not bare grass
+  for(let i = 0; i <= gw; i++) for(let j = 0; j <= gh; j++){
+    for(const [gbx, gbz] of [[bx0 + i * HOOD_PITCH + HOOD_BLK, bz0 + j * HOOD_PITCH],
+                             [bx0 + i * HOOD_PITCH, bz0 + j * HOOD_PITCH + HOOD_BLK]]){
+      for(let b2 = 0; b2 < HOOD_BLK; b2++){
+        const X = gbx === bx0 + i * HOOD_PITCH + HOOD_BLK ? gbx : gbx + b2;
+        const Z = gbz === bz0 + j * HOOD_PITCH + HOOD_BLK ? gbz : gbz + b2;
+        if(X > bx0 + gw * HOOD_PITCH || Z > bz0 + gh * HOOD_PITCH) continue;
+        if(blockLandFrac(X, Z) < 0.9) continue;
+        placeInBlock(X, Z, {type:'forest', w:5, d:5}, 0);
+      }
+    }
+  }
+  state.hour = 7.2; state.simTime = 7.2;
+  rebuildCity();
+  resetCamera(false);
+}
+
+/* Trams and bikes run the open ground between districts, never through a
+   neighbourhood and never across the central park. */
+function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
+  const lineOf = b => nodeGX(clamp(Math.round((b * PITCH) / PITCH), 0, NX - 1));
+  const gapBlock = idx => idx * HOOD_PITCH + HOOD_BLK;          // the separating block
+  const from = bx0 * PITCH - 2, to = (bx0 + gw * HOOD_PITCH) * PITCH + 2;
+  const zFrom = bz0 * PITCH - 2, zTo = (bz0 + gh * HOOD_PITCH) * PITCH + 2;
+  const parkI = [ci - 1, ci + CP - 1], parkJ = [cj - 1, cj + CP - 1];
+  const tramLines = [];
+  const runLine = (fixed, axis, a, b, everyN) => {
+    const stops = [];
+    for(let i = 0; i < NX; i++){
+      const g = nodeGX(i);
+      if(g < a || g > b || i % everyN) continue;
+      const gx = axis === 'x' ? g : fixed, gz = axis === 'x' ? fixed : g;
+      const srot = axis === 'x' ? 0 : 1;
+      if(!canPlace('tramstop', gx, gz, srot, -1)) continue;
+      addObject('tramstop', gx, gz, srot);
+      stops.push(state.objects[state.objects.length - 1].uid);
+    }
+    if(stops.length > 1) tramLines.push({mode:'tram', c: tramLines.length % METRO_COLS.length, stops});
+  };
+  /* A tram along every separating strip that doesn't cross the park, so no
+     neighbourhood is more than one gap from a stop, and bike routes on the
+     strips between them. */
+  for(let j = 0; j < gh; j++){
+    if(j >= parkJ[0] && j <= parkJ[1]) continue;                // keep clear of the park
+    runLine(lineOf(bz0 + gapBlock(j)), 'x', from, to, 3);
+  }
+  for(let i = 0; i < gw; i++){
+    if(i >= parkI[0] && i <= parkI[1]) continue;
+    if(i % 2 === 1) runLine(lineOf(bx0 + gapBlock(i)), 'z', zFrom, zTo, 3);
+  }
+  for(let j = 0; j < gh; j++){
+    if(j >= parkJ[0] && j <= parkJ[1]) continue;
+    if(j % 2 === 1) placeLine('bike', lineOf(bz0 + gapBlock(j)), 'x', from, to);
+  }
+  for(let i = 0; i < gw; i++){
+    if(i >= parkI[0] && i <= parkI[1]) continue;
+    placeLine('bike', lineOf(bx0 + gapBlock(i)), 'z', zFrom, zTo);
+  }
+  // a subway stop at every business district and every third neighbourhood
+  let n = 0;
+  for(const [k, r] of role){
+    if(r === 'park') continue;
+    const [i, j] = k.split(',').map(Number);
+    if(r !== 'biz' && (n++ % 3)) continue;
+    const gx = lineOf(bx0 + i * HOOD_PITCH + 2), gz = lineOf(bz0 + j * HOOD_PITCH + 2);
+    if(canPlace('subway', gx, gz, 0, -1)) addObject('subway', gx, gz, 0);
+  }
+  state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(tramLines);
 }
 
 function generateCity(seed, sizeIdx, layout, density){
@@ -5813,6 +7470,8 @@ function generateCity(seed, sizeIdx, layout, density){
   occ.fill(-1); occT.fill(-1);
   state.selected = -1;
   setTool(null);
+
+  if(LAY === 'planned'){ generatePlanned(SZ); return; }
 
   const NB = Math.floor(GRID / PITCH);
   const BK = (bx, bz) => bx + ',' + bz;
@@ -6017,13 +7676,8 @@ function generateCity(seed, sizeIdx, layout, density){
     const rot = vertical ? 1 : 0;
     if(canPlace('arch', ax * PITCH + 1, az * PITCH + 1, rot, -1)) addObject('arch', ax * PITCH + 1, az * PITCH + 1, rot);
   }
-  // a cathedral on a civic block, plus a fountain and a statue in the parks
-  for(const [bx, bz] of bizBlocks.slice().reverse()){
-    const rot = vertical ? 0 : 1;
-    if(canPlace('cathedral', bx * PITCH - 1, bz * PITCH, rot, -1)){
-      addObject('cathedral', bx * PITCH - 1, bz * PITCH, rot); break;
-    }
-  }
+  // a fountain and a statue in the parks (the cathedrals are placed with the
+  // other superblocks below, where there is room for a proper one)
   for(const [k, spec] of [[0, 'fountain'], [1, 'statue']]){
     const pool = parkBlocks.length ? parkBlocks : bizBlocks;
     for(let i = 0; i < pool.length; i++){
@@ -6079,6 +7733,62 @@ function generateCity(seed, sizeIdx, layout, density){
       }
     }
   }
+  /* One city hall, always, on a civic block near the centre of things — and it
+     should be *massive*, the biggest civic thing in the city. Try it at full
+     size first and step down only if the city genuinely has no room, so a
+     cramped map gets a smaller one rather than none at all. */
+  {
+    const cands = shuffle(bizBlocks.concat(mixedBlocks, hoodBlocks));
+    let done = false;
+    for(const [w, d, st] of [[8, 8, 15], [8, 7, 14], [7, 6, 13], [6, 5, 11], [4, 4, 9]]){
+      const spec = {type:'cityhall', w, d, stories:st};
+      for(const [bx, bz] of cands) if(placeSpanning(spec, bx, bz, 5)){ done = true; break; }
+      if(done) break;
+    }
+  }
+  /* Cathedrals, and plenty of them — one great church per 50,000 people and
+     never fewer than three, each standing over its own quarter rather than all
+     of them crowded downtown. */
+  {
+    const cands = shuffle(hoodBlocks.concat(mixedBlocks, bizBlocks));
+    const guess = fw * fh * SZ.per / (DENS.spread * DENS.spread);
+    const want = Math.max(3, Math.round(guess / 50000));       // one per 50,000 people, never fewer than three
+    let made = 0;
+    for(const [bx, bz] of cands){
+      if(made >= want) break;
+      const along = rnd() < 0.5;
+      const L = 7 + Math.floor(rnd() * 4), S = 4 + Math.floor(rnd() * 2);
+      const spec = {type:'cathedral', w: along ? S : L, d: along ? L : S,
+                    stories:10 + Math.floor(rnd() * 12)};
+      if(placeSpanning(spec, bx, bz, 4)) made++;
+    }
+  }
+  /* Sports megatowers — one, plus another for a city and again for a
+     metropolis. Big enough that they want the edge of the built-up area. */
+  {
+    const cands = shuffle(mixedBlocks.concat(bizBlocks, hoodBlocks).slice(0, 80));
+    const want = 1 + (state.size >= 2 ? 1 : 0) + (state.size >= 3 ? 1 : 0);
+    let made = 0;
+    for(const [bx, bz] of cands){
+      if(made >= want) break;
+      const spec = {type:'sportsmega', w:6 + Math.floor(rnd() * 3), d:6 + Math.floor(rnd() * 3),
+                    stories:dh(14 + Math.floor(rnd() * 8), 'sportsmega')};
+      if(placeSpanning(spec, bx, bz, 4)) made++;
+    }
+  }
+  /* Vertical farms, scaling with the city — they grow its food, so they sit
+     out towards the industrial flank as well as in among the offices. */
+  {
+    const cands = shuffle(mixedBlocks.concat(bizBlocks, hoodBlocks));
+    const want = 1 + state.size * 2 + Math.floor(rnd() * 3);
+    let made = 0;
+    for(const [bx, bz] of cands){
+      if(made >= want) break;
+      const spec = {type:'farm', w:3 + Math.floor(rnd() * 2), d:3 + Math.floor(rnd() * 2),
+                    stories:dh(18 + Math.floor(rnd() * 16), 'farm')};
+      if(placeSpanning(spec, bx, bz, 3)) made++;
+    }
+  }
   // a light-industrial edge. Standard puts it on a flank; Organized tucks it
   // in behind the office district, well away from the housing.
   {
@@ -6119,6 +7829,20 @@ function generateCity(seed, sizeIdx, layout, density){
     }
   }
 
+  /* Every city has a school, however small it is. The block recipes only ever
+     *might* put one down, so a village can come out with none at all. */
+  {
+    const schools = () => state.objects.some(o => o.type === 'school');
+    if(!schools()){
+      const cands = shuffle(hoodBlocks.concat(mixedBlocks, bizBlocks));
+      for(const [w, d, st] of [[7, 6, 9], [6, 5, 8], [4, 3, 6]]){
+        for(const [bx, bz] of cands)
+          if(placeSpanning({type:'school', w, d, stories:dh(st, 'school'), tint:1}, bx, bz, 4)) break;
+        if(schools()) break;
+      }
+    }
+  }
+
   /* ---- 6. fill every block by zone ---- */
   const lakeSet = new Set();
   if(parkBlocks.length){
@@ -6136,8 +7860,12 @@ function generateCity(seed, sizeIdx, layout, density){
       if(rnd() < 0.22 && canPlace({type:'forest', w:5, d:5}, bx * PITCH, bz * PITCH, 0, -1)){
         addObject({type:'forest', w:5, d:5}, bx * PITCH, bz * PITCH, 0); continue;
       }
-      if(frac > 0.9 && rnd() < 0.78 && canPlace(BIG, bx * PITCH, bz * PITCH, 0, -1)) addObject(BIG, bx * PITCH, bz * PITCH, 0);
-      else fillBlock(bx, bz, rnd() < 0.3 ? [sportsS(), plazaS()] : [parkS(), parkS()]);
+      if(frac > 0.9 && rnd() < 0.70 && canPlace(BIG, bx * PITCH, bz * PITCH, 0, -1)) addObject(BIG, bx * PITCH, bz * PITCH, 0);
+      else { const r3 = rnd();
+        fillBlock(bx, bz, r3 < 0.26 ? [sportsS(), plazaS()]
+                        : r3 < 0.40 ? [playS(), parkS()]
+                        : r3 < 0.48 ? [poolS(), parkS()]
+                        : [parkS(), parkS()]); }
       continue;
     }
     if(z === 'sportzone') continue;                     // already laid out
@@ -6279,6 +8007,8 @@ function updateWorld(h, dt){
   cityU.uLit24.value = p.lit24;
 
   waterU.uTime.value += dt;
+  poolU.uTime.value += dt;
+  poolU.uNight.value = p.night;
   waterU.uSky.value.set(lMid[0] * 0.85 + lTop[0] * 0.35, lMid[1] * 0.85 + lTop[1] * 0.35, lMid[2] * 0.85 + lTop[2] * 0.35);
   waterU.uSunCol.value.set(lSun[0] * p.si * 0.9, lSun[1] * p.si * 0.9, lSun[2] * p.si * 0.9);
   waterU.uSunDir.value.copy(sd.dir);
@@ -6287,6 +8017,12 @@ function updateWorld(h, dt){
 
   const n = p.night;
   if(lampMesh){ lampMesh.visible = n > 0.10; matBulb.color.setRGB(n, n * 0.82, n * 0.58); }
+  if(beamMesh){
+    const pulse = 0.72 + 0.28 * Math.sin(perfNow * 0.0022);
+    matBeam.opacity = 0.34 * pulse;
+    matCap.opacity = 0.92 * pulse;
+  }
+  updateFloods(n);
   if(poolMesh){ poolMesh.visible = n > 0.10; matPool.opacity = 0.20 * n; }
   matTram.emissiveIntensity = 0.6 * n;
   matTramLamp.color.setRGB(0.42 + 0.58 * n, 0.40 + 0.54 * n, 0.34 + 0.46 * n);
