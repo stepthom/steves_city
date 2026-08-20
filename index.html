@@ -334,6 +334,14 @@
       <label>Density <b id="ddenv"></b></label>
       <div class="opts" id="dden"></div>
     </div>
+    <div class="drow">
+      <label>Subway system <b id="dsubv"></b></label>
+      <div class="opts" id="dsub"></div>
+    </div>
+    <div class="drow">
+      <label>Tram system <b id="dtramv"></b></label>
+      <div class="opts" id="dtram"></div>
+    </div>
     <div class="dnote">The map is the whole buildable area. The city fills part of it — the rest is
       open country you can expand into.</div>
     <div class="dfoot">
@@ -643,6 +651,21 @@ const HOOD_PITCH = 7;         // ...with a block of open ground between it and t
    L=library  H=shopping  T=tournament ground  P=parkland */
 const HOOD_MAP = ['AAAAAA', 'AAAAPP', 'SGFLHP', 'SGFPPP', 'SGFTTT', 'PPPTTT'];
 const layoutOf = k => LAYOUTS.find(l => l.k === k) || LAYOUTS[1];
+
+/* How the subway and tram networks are laid out, chosen when starting a new
+   city. `random` is the layout's own organic network (arterials on the grown
+   layouts, district strips on a planned one) — i.e. whatever the city built
+   before this choice existed. `grid` and `ring` are laid the same way whatever
+   the city layout, by the generic builders. More types can be added here. */
+const TRANSIT_SYS = [
+  {k:'random', n:'Random',
+   d:'The layout’s own organic network — lines where the city grew.'},
+  {k:'grid', n:'Full grid',
+   d:'Stops on an even N×N grid, lines along every row and column. N grows with the map.'},
+  {k:'ring', n:'Ring-radial',
+   d:'Concentric ring lines around the centre, crossed by diagonal radials through it.'},
+];
+const transitSysOf = k => TRANSIT_SYS.find(s => s.k === k) || TRANSIT_SYS[0];
 
 /* How hard the city is built. Denser cities go taller and pack more onto each
    block; sparser ones drop the storeys, leave more of each block green, and
@@ -3344,6 +3367,7 @@ const state = {
   mode: 'view', tool: null, speed: 1, hour: 7.2, simTime: 7.2, seed: 1, metro: false, size: 2,
   objects: [], lines: [], selected: -1, selLine: -1, population: 0, jobs: 0,
   pplSize: 1.0, density: 1, focus: null, layout: 'standard', dens: 'verydense', art: 'normal',
+  subwaySys: 'random', tramSys: 'random',
 };
 /* A focus is {label, types:Set}. Streets and tram track always stay lit so the
    highlighted things still sit in a readable city. */
@@ -6760,6 +6784,25 @@ function ridePoints(want, line, fromStop, toStop){
   }
   return out;
 }
+/* The length of track a tram actually covers between two of its stops. A tram
+   runs on the streets, so this is the sum of the line's own waypoints between
+   the platforms — the same points ridePoints draws and the vehicle follows —
+   not the crow-flies gap, which is shorter wherever the track bends. Returns 0
+   if the line has no drawn path, so the caller can fall back on the straight
+   distance. A subway is a straight tunnel and never needs this. */
+function trackDist(line, fromStop, toStop){
+  const li = state.lines.indexOf(line);
+  const path = (G.tramPaths || []).find(p => p.li === li);
+  if(!path || !fromStop || !toStop) return 0;
+  const at = uid => path.pts.findIndex(w => w.uid === uid);
+  const a = at(fromStop.uid), b = at(toStop.uid);
+  if(a < 0 || b < 0) return 0;
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  let d = 0;
+  for(let i = lo + 1; i <= hi; i++)
+    d += Math.hypot(path.pts[i].x - path.pts[i-1].x, path.pts[i].z - path.pts[i-1].z);
+  return d;
+}
 function stopGraph(want){
   const stops = [], byUid = new Map();
   for(const o of state.objects){
@@ -6774,10 +6817,16 @@ function stopGraph(want){
       const a = byUid.get(L.stops[i-1]), b = byUid.get(L.stops[i]);
       if(a === undefined || b === undefined || a === b) continue;
       const d = Math.hypot(stops[a].x - stops[b].x, stops[a].z - stops[b].z);
+      /* Ride the length of the track, not the crow-flies gap: a tram follows the
+         streets, so a bent hop is longer than the straight line between its
+         platforms — and quoting the straight line makes the ride come out short
+         and the reported distance disagree with the route drawn on the map. A
+         subway tunnel is straight, so there the gap is the truth. */
+      const rideDist = want === 'subway' ? d : (trackDist(L, stops[a].o, stops[b].o) || d);
       // a tram stops at the far end of every hop; five stops en route is a minute
-      const secs = d / (want === 'subway' ? RIDE_SPEED.subway : RIDE_SPEED.tram) + TRAM_DWELL + 2;
-      stops[a].adj.push({to:b, secs, dist:d, line:L, ride:1, from:stops[a].o, at:stops[b].o});
-      stops[b].adj.push({to:a, secs, dist:d, line:L, ride:1, from:stops[b].o, at:stops[a].o});
+      const secs = rideDist / (want === 'subway' ? RIDE_SPEED.subway : RIDE_SPEED.tram) + TRAM_DWELL + 2;
+      stops[a].adj.push({to:b, secs, dist:rideDist, line:L, ride:1, from:stops[a].o, at:stops[b].o});
+      stops[b].adj.push({to:a, secs, dist:rideDist, line:L, ride:1, from:stops[b].o, at:stops[a].o});
     }
   }
   // walking between stops that are close enough to count as one interchange
@@ -6869,7 +6918,12 @@ function planByService(A, B, want){
   const access = chain[0] && chain[0].access;
   if(!access) return 'none';
   let onFoot = access.secs + done.egress.secs, riding = 0, boards = 1;
-  let waiting = firstWait;
+  /* Sum the real wait for each line actually boarded, so the headline total
+     agrees with its own step list and reflects the service the traveller waits
+     for. The Dijkstra seeds an optimistic network-minimum wait (firstWait) to
+     rank routes, but the honest first wait is that of the line boarded first —
+     which is exactly the wait step shown in the checklist. */
+  let waiting = 0;
   let dist = access.dist + done.egress.dist;
   const pts = access.pts.slice();
   const pk = access.pts.slice(1).map(() => 'walk');
@@ -6913,8 +6967,10 @@ function planByService(A, B, want){
          line can serve. The leg is then dropped and the traveller walks the
          whole way, which is exactly what it looks like. */
       if(!ride || ride.line !== p.e.line){
-        if(ridden){ const w2 = waitOn(p.e.line); waiting += w2; boards++; }
-        steps.push({k:'wait', kind:want, len:0, secs: waitOn(p.e.line),
+        const w2 = waitOn(p.e.line);
+        waiting += w2;                 // every boarding waits for its own line
+        if(ridden) boards++;           // a change of line, not the first boarding
+        steps.push({k:'wait', kind:want, len:0, secs: w2,
                     label: want === 'subway' ? 'Wait on the platform' : 'Wait at the tram stop'});
         ride = {k:'ride', kind:want, len:0, secs:0, line:p.e.line,
                 label: want === 'subway' ? 'Ride the subway' : 'Ride the tram'};
@@ -8018,7 +8074,7 @@ function serialise(){
   return {
     v: 2, seed: state.seed, hour: state.hour, grid: GRID,
     ppl: {size: state.pplSize, den: state.density}, layout: state.layout, dens: state.dens,
-    art: state.art,
+    art: state.art, subSys: state.subwaySys, tramSys: state.tramSys,
     camera: {t:[cam.target.x, cam.target.y, cam.target.z], d:cam.dist, a:cam.az, e:cam.el},
     /* `tr` marks the arterials, on both the cells and the tram lines that run
        down them. Leave it out and a saved city reloads with its corridors as
@@ -8038,6 +8094,8 @@ function applyCity(d){
   state.simTime = state.hour;
   state.layout = layoutOf(d.layout).k;
   state.dens = densityOf(d.dens).k;
+  state.subwaySys = transitSysOf(d.subSys).k;
+  state.tramSys = transitSysOf(d.tramSys).k;
   DENS = densityOf(state.dens);
   /* Set the look before the objects go in: the tree colours are chosen as each
      tree is made, so a style applied afterwards would leave a neon city full of
@@ -8109,7 +8167,7 @@ $('fileIn').addEventListener('change', e => {
   r.readAsText(f);
   e.target.value = '';
 });
-const newOpts = {map:1, size:2, lay:1, den:3};
+const newOpts = {map:1, size:2, lay:1, den:3, sub:0, tram:0};
 /* Mirrors what the generator will actually do, clamping included, so the number
    in the dialog is the number you get — even when a sparse city runs out of map. */
 const estBlocks = i => {
@@ -8180,10 +8238,17 @@ function renderNewDialog(){
   $('ddenv').textContent = D.d + ' Covers ' + b.w + '×' + b.h + ' blocks (' +
     (b.w * PITCH * CELL / 1000).toFixed(1) + '×' + (b.h * PITCH * CELL / 1000).toFixed(1) + ' km)' +
     (b.w * b.h > 2500 ? ' — big enough to be slow to edit.' : '.');
+  $('dsub').innerHTML = TRANSIT_SYS.map((s, i) =>
+    '<button class="opt' + (i === newOpts.sub ? ' on' : '') + '" data-v="' + i + '">' + s.n + '</button>').join('');
+  $('dtram').innerHTML = TRANSIT_SYS.map((s, i) =>
+    '<button class="opt' + (i === newOpts.tram ? ' on' : '') + '" data-v="' + i + '">' + s.n + '</button>').join('');
+  $('dsubv').textContent = TRANSIT_SYS[newOpts.sub].d;
+  $('dtramv').textContent = TRANSIT_SYS[newOpts.tram].d;
   const wire = (id, key) => $(id).querySelectorAll('.opt').forEach(b2 => b2.addEventListener('click', () => {
     newOpts[key] = +b2.dataset.v; renderNewDialog();
   }));
   wire('dmap', 'map'); wire('dpop', 'size'); wire('dlay', 'lay'); wire('dden', 'den');
+  wire('dsub', 'sub'); wire('dtram', 'tram');
 }
 function openNewDialog(){ renderNewDialog(); $('modal').classList.add('show'); }
 function closeNewDialog(){ $('modal').classList.remove('show'); }
@@ -8194,7 +8259,8 @@ $('dgo').addEventListener('click', () => {
   closeNewDialog();
   pushUndo('newcity');
   resizeWorld(MAP_SIZES[newOpts.map].g);
-  generateCity((Math.random() * 1e9) | 0, newOpts.size, LAYOUTS[newOpts.lay].k, DENSITIES[newOpts.den].k);
+  generateCity((Math.random() * 1e9) | 0, newOpts.size, LAYOUTS[newOpts.lay].k, DENSITIES[newOpts.den].k,
+               TRANSIT_SYS[newOpts.sub].k, TRANSIT_SYS[newOpts.tram].k);
   toast('A new ' + DENSITIES[newOpts.den].n.toLowerCase() + ', ' +
         LAYOUTS[newOpts.lay].n.toLowerCase() + ' ' +
         CITY_SIZES[newOpts.size].n.toLowerCase() + ' rises');
@@ -8951,6 +9017,12 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
   const midCol = i => lineOf(bx0 + i * HOOD_PITCH + 2);
   const inPark = (i, j) => i >= parkI[0] && i <= parkI[1] && j >= parkJ[0] && j <= parkJ[1];
 
+  /* A planned city's own network runs along the separating strips, never through
+     a district — that is `random` here. A grid or ring is laid the generic way,
+     from the district-grid footprint, the same as any other layout. */
+  if(state.tramSys !== 'random'){
+    for(const L of buildTramSystem(NETB, state.tramSys, () => [])) tramLines.push(L);
+  } else {
   /* ---- the arterials ----
      The same corridor as anywhere else — track down the middle, protected bike
      lane beside it, promenade on the kerbs — laid along separating strips, so
@@ -8992,6 +9064,7 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
     if(NETB.taken.has('z' + g)) continue;
     runLine(g, 'z', zFrom, zTo, 2);
   }
+  }
 
   /* ---- the bike lattice ----
      Inside the neighbourhoods as well as around them: trams stay out of a
@@ -9006,9 +9079,14 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
      two from anywhere. Build it as a *grid of straight lines*: a corridor along
      every other separating strip each way, a station where each corridor passes
      a district, and a shared station wherever two corridors cross. The crossings
-     are the interchanges, and they fall out of the geometry for free.
+     are the interchanges, and they fall out of the geometry for free. That is
+     `random` here; a `grid` or `ring` choice is laid the generic way instead.
 
      A tunnel may run under the central park; only the surface has to go round. */
+  let subLines = [];
+  if(state.subwaySys !== 'random'){
+    subLines = buildSubwaySystem(NETB, state.subwaySys, () => []);
+  } else {
   const stationAt = new Map();                       // "gx,gz" -> uid, so crossings are shared
   const putStop = (gx, gz) => {
     const k = gx + ',' + gz;
@@ -9028,7 +9106,6 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
   for(let i = -1; i < gw; i += 2) colCorr.push(i);
   if(!rowCorr.includes(gh - 1)) rowCorr.push(gh - 1);   // always serve the far edges
   if(!colCorr.includes(gw - 1)) colCorr.push(gw - 1);
-  const subLines = [];
   const rowLineOf = new Map(), colLineOf = new Map();   // corridor -> its line
   for(const j of rowCorr){
     const z = gapRow(j);
@@ -9094,6 +9171,7 @@ function planTransit(gw, gh, bx0, bz0, role, key, ci, cj, CP){
       const A = stationByUid(a), B = stationByUid(b);
       return (A.gx + A.gz) - (B.gx + B.gz);
     });
+  }
   }
   state.lines = subLines.concat(tramLines);
 }
@@ -9265,6 +9343,147 @@ function layFeeders(o, tramLines){
   for(const gx of spreadLines(xs, (o.size | 0))) add(gx, 'z', o.zFrom, o.zTo);
 }
 
+/* ---- chosen transit topologies -------------------------------------------
+   `random` is each layout's own organic network (arterials on the grown
+   layouts, district strips on a planned one) — handled by the caller. `grid`
+   and `ring` are laid the same way whatever the city layout, from the footprint
+   the caller hands in. Both return an array of line objects; grid trams also lay
+   the arterial corridors as they go, so a grid tram keeps the bike lane and
+   promenade a random one would. --------------------------------------------- */
+
+/* The node lines (street intersections) that fall inside the footprint. `xs`
+   are x-positions for vertical lines, `zs` are z-positions for horizontal ones,
+   mirroring how layTrunk/placeLine take (fixed, axis). */
+function footLines(o){
+  const xs = [], zs = [];
+  for(let i = 0; i < NX; i++){
+    const g = nodeGX(i);
+    if(g >= o.gFrom && g <= o.gTo) xs.push(g);
+    if(g >= o.zFrom && g <= o.zTo) zs.push(g);
+  }
+  return {xs, zs};
+}
+/* How many lines each way in a full grid. Grows with the footprint — a village
+   gets a coarse 2×2, a metropolis on the Huge map a fine one — capped so a huge
+   city doesn't drown in track. */
+function gridSpan(o){
+  const {xs, zs} = footLines(o);
+  const N = clamp(Math.round(Math.min(xs.length, zs.length) / 4), 2, 7);
+  return {xs, zs, N};
+}
+/* Snap an intended node position (in cell units) to the nearest node line. */
+function snapNode(c){ return nodeGX(clamp(Math.round((c - (PITCH - 1)) / PITCH), 0, NX - 1)); }
+/* Build one line from a list of stop uids: drop misses and any stop repeated
+   back-to-back (two ring directions can snap to the same node), so no edge is
+   ever zero length. Fewer than two distinct stops is not a line. */
+function mkLine(stops, mode, idx){
+  const out = [];
+  for(const u of stops) if(u !== null && u !== undefined && out[out.length - 1] !== u) out.push(u);
+  if(new Set(out).size < 2) return null;
+  return {mode, c: idx % METRO_COLS.length, stops: out};
+}
+
+/* Full grid of trams: the same arterial corridor as `random`, but laid along an
+   even N×N grid instead of one-to-four spread lines. Keeps the bike lane and
+   promenade, and marks the lines `taken` so the lattice fills around them. */
+function buildTramGrid(o){
+  const tramLines = [];
+  o.taken = o.taken || new Set();
+  const {xs, zs, N} = gridSpan(o);
+  for(const gz of spreadLines(zs, N)){ o.taken.add('x' + gz); layTrunk(gz, 'x', o.gFrom, o.gTo, tramLines); }
+  for(const gx of spreadLines(xs, N)){ o.taken.add('z' + gx); layTrunk(gx, 'z', o.zFrom, o.zTo, tramLines); }
+  return tramLines;
+}
+
+/* Snap an intended intersection to a placeable station, sharing whatever is
+   already there so a crossing becomes one interchange rather than two stops. */
+function stopPlacer(type){
+  const at = new Map();
+  return (gx, gz) => {
+    const k = snapNode(gx) + ',' + snapNode(gz);
+    if(at.has(k)) return at.get(k);
+    const srot = type === 'tramstop' ? 0 : 0;
+    for(const [dx, dz] of [[0,0],[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]]){
+      const px = snapNode(gx) + dx * PITCH, pz = snapNode(gz) + dz * PITCH;
+      if(!canPlace(type, px, pz, srot, -1)) continue;
+      addObject(type, px, pz, srot);
+      const uid = state.objects[state.objects.length - 1].uid;
+      at.set(k, uid);
+      return uid;
+    }
+    return null;
+  };
+}
+
+/* Full grid of stops: a station at every intersection of N chosen lines each
+   way, a line along every row and every column. Crossings are shared, so each
+   interior station is an interchange between its row line and its column line.
+   Straight between stops — right for a subway tunnel; a tram grid uses the
+   arterial builder above instead. */
+function buildGridStops(o, type, mode){
+  const {xs, zs, N} = gridSpan(o);
+  const X = spreadLines(xs, N), Z = spreadLines(zs, N);
+  const put = stopPlacer(type);
+  const grid = X.map(gx => Z.map(gz => put(gx, gz)));
+  const lines = [];
+  for(let j = 0; j < Z.length; j++){ const L = mkLine(X.map((_, i) => grid[i][j]), mode, lines.length); if(L) lines.push(L); }
+  for(let i = 0; i < X.length; i++){ const L = mkLine(grid[i], mode, lines.length); if(L) lines.push(L); }
+  return lines;
+}
+
+/* Ring-radial: concentric ring lines around the footprint centre, crossed by
+   two diagonal radials that meet at the centre. The rings put stops at the eight
+   compass points; the radials reuse the four corner stops of each ring, so where
+   a radial crosses a ring is automatically one interchange — the hubs fall out
+   of the geometry, exactly as in a real ring-radial metro. Straight segments, so
+   a subway draws clean chords; a tram follows the streets between the same stops
+   and comes out as a stepped ring, which is the honest thing for track. */
+function buildRingRadial(o, type, mode){
+  const {xs, zs} = footLines(o);
+  if(xs.length < 3 || zs.length < 3) return [];
+  const cx = (o.gFrom + o.gTo) / 2, cz = (o.zFrom + o.zTo) / 2;
+  const half = Math.min(o.gTo - o.gFrom, o.zTo - o.zFrom) / 2;   // radius, in cells
+  const R = clamp(Math.round(half / (PITCH * 3)), 2, 4);         // number of rings
+  const put = stopPlacer(type);
+  const centre = put(cx, cz);
+  // eight compass directions; 1,3,5,7 are the diagonals the radials ride
+  const ang = d => d * Math.PI / 4;
+  const ring = [];                                              // ring[k][dir] = uid
+  for(let k = 0; k < R; k++){
+    const r = half * (0.42 + 0.58 * (R === 1 ? 1 : k / (R - 1)));
+    ring[k] = [];
+    for(let d = 0; d < 8; d++)
+      ring[k][d] = put(cx + r * Math.cos(ang(d)), cz + r * Math.sin(ang(d)));
+  }
+  const lines = [];
+  for(let k = 0; k < R; k++){                                   // the ring loops, closed
+    const loop = ring[k].slice(); loop.push(ring[k][0]);
+    const L = mkLine(loop, mode, lines.length); if(L) lines.push(L);
+  }
+  const radial = (dA, dB) => {                                  // one diagonal, corner to centre to corner
+    const s = [];
+    for(let k = R - 1; k >= 0; k--) s.push(ring[k][dA]);
+    s.push(centre);
+    for(let k = 0; k < R; k++) s.push(ring[k][dB]);
+    const L = mkLine(s, mode, lines.length); if(L) lines.push(L);
+  };
+  radial(1, 5);   // NE ↔ SW through the centre
+  radial(3, 7);   // NW ↔ SE through the centre
+  return lines;
+}
+
+/* Dispatch: `random` is the caller's own builder, passed in as `randomFn`. */
+function buildTramSystem(o, sys, randomFn){
+  if(sys === 'grid') return buildTramGrid(o);
+  if(sys === 'ring') return buildRingRadial(o, 'tramstop', 'tram');
+  return randomFn();
+}
+function buildSubwaySystem(o, sys, randomFn){
+  if(sys === 'grid') return buildGridStops(o, 'subway', 'subway');
+  if(sys === 'ring') return buildRingRadial(o, 'subway', 'subway');
+  return randomFn();
+}
+
 /* What the network actually achieves, which is the only thing worth asserting:
    the share of buildable ground within the access standard of a stop or a bike
    path. Counting the lines laid tells you nothing — a line that could not be
@@ -9290,11 +9509,13 @@ function netCoverage(){
   return {covered, total, frac: total ? covered / total : 0};
 }
 
-function generateCity(seed, sizeIdx, layout, density){
+function generateCity(seed, sizeIdx, layout, density, subSys, tramSys){
   state.seed = (seed >>> 0) || 1;
   state.size = clamp(sizeIdx === undefined ? (state.size === undefined ? 2 : state.size) : sizeIdx, 0, 3);
   state.layout = layoutOf(layout || state.layout).k;
   state.dens = densityOf(density || state.dens).k;
+  state.subwaySys = transitSysOf(subSys || state.subwaySys).k;
+  state.tramSys = transitSysOf(tramSys || state.tramSys).k;
   DENS = densityOf(state.dens);
   const LAY = state.layout;
   const SZ = CITY_SIZES[state.size];
@@ -9535,7 +9756,7 @@ function generateCity(seed, sizeIdx, layout, density){
             zFrom: zLo * PITCH - 3, zTo: zHi * PITCH + PITCH + 3,
             size: state.size, taken: new Set()};
   })();
-  const netTrams = buildNetwork(NETB);
+  const netTrams = buildTramSystem(NETB, state.tramSys, () => buildNetwork(NETB));
 
   /* ---- 5b. superblocks: stadium, malls, factories and outlying forest ---- */
   const placeSpanning = (spec, bx, bz, spread) => {
@@ -9749,10 +9970,12 @@ function generateCity(seed, sizeIdx, layout, density){
   hubs.push([lineOf(bx0 + fw - 2), lineOf(Math.max(0, waterRow - 1))]);
   NETB.hubs = hubs;
 
-  layFeeders(NETB, netTrams);
+  // feeder tram loops belong to the organic network; a grid or ring is already dense
+  if(state.tramSys === 'random') layFeeders(NETB, netTrams);
   layLattice(NETB);
   layPerimeter(NETB);
-  laySubway(NETB);
+  const subLines = buildSubwaySystem(NETB, state.subwaySys,
+    () => { laySubway(NETB); return autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway'); });
 
   // the waterfront promenade street: the lowest line that is still mostly on land
   let walkLine = -1;
@@ -9765,7 +9988,7 @@ function generateCity(seed, sizeIdx, layout, density){
     if(n > 8 && line > walkLine) walkLine = line;
   }
   if(walkLine >= 0) placeLine('walk', walkLine, 'x', NETB.gFrom, NETB.gTo);
-  state.lines = autoLines(state.objects.filter(o => o.type === 'subway'), 0, 'subway').concat(netTrams);
+  state.lines = subLines.concat(netTrams);
 
   state.hour = 7.2; state.simTime = 7.2;
   rebuildCity();
@@ -9955,7 +10178,13 @@ window.__city = {state, generateCity, blankCity, resizeWorld, setMetroView, appl
   addStopAt, finishLine, setDrawLine:(i)=>{drawLine=i;}, getDrawLine:()=>drawLine, autoLines, pruneLines,
   getTrams:()=>trams, selectLine, getLinePick:()=>linePickLine.length, tramCell,
   layerFor, withRiders, storiesOf, hostLift, resolvePlacement, occupantsUnder, removeMany,
-  addObject, removeObject, canPlace, fits, cellsOf, oi, cellFromWorld, FACADES, STYLES, SPORTS};
+  addObject, removeObject, canPlace, fits, cellsOf, oi, cellFromWorld, FACADES, STYLES, SPORTS,
+  /* journey planner — exposed for the automated test suite */
+  trip, tripPlan, planWalk, planBike, planByService, tripLegs, buildGraph, tripTakeIt, tripClick, tripStart,
+  routeNodes, nearestNode, walkPath, bikeNodes, stopGraph, findTramLeg, findMetroLeg,
+  waitOn, lineHeadway, edgeKind, objByUid: (u)=>state.objects.find(o=>o.uid===u),
+  objCentre, footprint, isStop, modeOf, TRIP_MODES, TRIP_RUN, RIDE_SPEED, WALK_MS, BIKE_MS,
+  netCoverage, TRANSIT_SYS, LAYOUTS, DENSITIES};
 </script>
 </body>
 </html>

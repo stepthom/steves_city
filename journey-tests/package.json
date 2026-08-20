@@ -1,0 +1,14 @@
+{
+  "name": "steves-city-journey-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated tests for the Steve's City journey planner (routing, quotes, and end-to-end timing).",
+  "scripts": {
+    "test": "node run-tests.cjs",
+    "test:timing": "RUN_TIMING=1 node run-tests.cjs"
+  },
+  "dependencies": {
+    "three": "0.160.0",
+    "playwright": "^1.44.0"
+  }
+}
